@@ -3,9 +3,13 @@
 
 package dev.apanzinc.hypervisage.ui.pages
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.apanzinc.hypervisage.BuildConfig
 import dev.apanzinc.hypervisage.R
 import dev.lackluster.hyperx.ui.layout.HyperXPage
@@ -70,5 +74,7 @@ fun AboutPage() {
                 enabled = false,
             )
         }
+
+        item { Spacer(modifier = Modifier.height(112.dp)) }
     }
 }

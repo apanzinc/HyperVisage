@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -57,7 +58,8 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * HyperOS 4 风格的分离式悬浮底栏：一个胶囊导航 + 一个独立圆形动作按钮。
+ * HyperOS 4 风格的分离式悬浮底栏：一个胶囊导航 + 一个独立圆形搜索按钮。
+ * 胶囊里放三个并行标签页（主页 / 设置 / 关于），圆钮是打开搜索页的动作入口。
  *
  * 结构和尺寸参照 compose-miuix-ui/miuix main 分支的 `GlassNavigationBar`
  * （GlassNavigationBarDefaults / GlassNavigationBarLayout），但只用 0.9.4 已有的
@@ -65,6 +67,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  */
 private val BarHeight = 56.dp
 private val CapsuleWidth = 208.dp
+/** 三个标签时每项仍是 88dp，和两项的 104dp 视觉密度接近。 */
+private val CapsuleWidthWide = 264.dp
 private val ActionSize = 56.dp
 private val ActionSpacing = 12.dp
 private val IconSize = 26.dp
@@ -124,6 +128,7 @@ fun HyperVisageBottomBar(
             horizontalArrangement = Arrangement.spacedBy(ActionSpacing),
         ) {
             NavigationCapsule(
+                width = if (items.size >= 3) CapsuleWidthWide else CapsuleWidth,
                 items = items,
                 index = index,
                 onSelect = onSelect,
@@ -147,6 +152,7 @@ fun HyperVisageBottomBar(
 
 @Composable
 private fun NavigationCapsule(
+    width: Dp,
     items: List<HyperVisageBottomBarItem>,
     index: Int,
     onSelect: (Int) -> Unit,
@@ -182,7 +188,7 @@ private fun NavigationCapsule(
 
     Box(
         modifier = Modifier
-            .width(CapsuleWidth)
+            .width(width)
             .height(BarHeight)
             .background(containerColor, shape)
             .border(StrokeWidth, strokeColor, shape)

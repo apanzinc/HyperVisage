@@ -12,17 +12,18 @@ import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavEntry
 import dev.apanzinc.hypervisage.data.Route
 import dev.apanzinc.hypervisage.debug.CrashRecorder
-import dev.apanzinc.hypervisage.ui.pages.AboutPage
 import dev.apanzinc.hypervisage.ui.pages.ExamplePage
-import dev.apanzinc.hypervisage.ui.pages.HomePage
-import dev.apanzinc.hypervisage.ui.pages.ModuleSettingsPage
+import dev.apanzinc.hypervisage.ui.pages.MainTabsScreen
+import dev.apanzinc.hypervisage.ui.pages.SearchPage
 import dev.apanzinc.hypervisage.ui.preference.AppPreferenceActions
 import dev.apanzinc.hypervisage.ui.preference.AppSettings
 import dev.lackluster.hyperx.core.HyperXActivity
+import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.layout.HyperXAppLayout
 import dev.lackluster.hyperx.ui.layout.HyperXLayoutConfig
 import dev.lackluster.hyperx.ui.preference.core.LocalPreferenceActions
 import dev.lackluster.hyperx.ui.theme.HyperXTheme
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.compose.koinInject
 
 class MainActivity : HyperXActivity() {
@@ -53,6 +54,8 @@ class MainActivity : HyperXActivity() {
         val appSettings: AppSettings = koinInject()
         val predictiveBack by appSettings.predictiveBack.collectAsState()
         val glassBlur by appSettings.glassBlur.collectAsState()
+        // 二级页（搜索结果）要能定位回某个顶层标签页，用一个一次性事件流通知 Pager
+        val tabRequests = remember { MutableSharedFlow<Int>(extraBufferCapacity = 1) }
 
         // 以后可以接上"是否分屏""模糊强度"这类模块自己的外观设置
         val layoutConfig = HyperXLayoutConfig(
@@ -66,13 +69,20 @@ class MainActivity : HyperXActivity() {
             HyperXAppLayout(
                 config = layoutConfig,
                 predictiveBackEnabled = predictiveBack,
-                primaryContent = { HomePage() },
+                primaryContent = { MainTabsScreen(tabRequests = tabRequests) },
                 customEntryProvider = { key ->
                     NavEntry(key) {
                         when (key) {
-                            is Route.ModuleSettings -> ModuleSettingsPage()
                             is Route.Example -> ExamplePage()
-                            is Route.About -> AboutPage()
+                            is Route.Search -> {
+                                val navigator = LocalNavigator.current
+                                SearchPage(
+                                    onOpenTab = { index ->
+                                        navigator.pop()
+                                        tabRequests.tryEmit(index)
+                                    },
+                                )
+                            }
                             else -> {}
                         }
                     }

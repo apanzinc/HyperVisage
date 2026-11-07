@@ -7,21 +7,14 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 /**
- * 全应用的导航目的地。
- * navigation3 用 @Serializable 的 NavKey 做类型安全路由，
- * 新增页面：加一个 data object，再到 MainActivity 的 customEntryProvider 里挂上。
+ * 二级页面路由。主页 / 设置 / 关于是并行的顶层标签页，不走导航栈，
+ * 所以这里只放真正需要从标签页 push 出来的页面。
  */
 @Serializable
 sealed interface Route : NavKey {
     @Serializable
-    data object Main : Route
-
-    @Serializable
-    data object ModuleSettings : Route
-
-    @Serializable
     data object Example : Route
 
     @Serializable
-    data object About : Route
+    data object Search : Route
 }

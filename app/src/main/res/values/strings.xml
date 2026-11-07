@@ -12,12 +12,18 @@
     <string name="page_module_settings">模块设置</string>
     <string name="page_example">示例功能</string>
     <string name="page_about">关于</string>
+    <string name="page_search">搜索</string>
 
     <string name="home_group_scopes">生效范围</string>
     <string name="home_group_other">其他</string>
     <string name="home_nav_home">主页</string>
     <string name="home_nav_settings">设置</string>
     <string name="home_nav_about">关于</string>
+    <string name="home_nav_search">搜索</string>
+
+    <string name="search_hint">搜索功能与设置</string>
+    <string name="search_group">匹配结果</string>
+    <string name="search_empty">没有匹配的内容</string>
 
     <string name="module_enabled_title">启用模块</string>
     <string name="module_enabled_summary">关闭后所有 Hook 均不生效</string>

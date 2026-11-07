@@ -3,8 +3,12 @@
 
 package dev.apanzinc.hypervisage.ui.pages
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.apanzinc.hypervisage.R
 import dev.apanzinc.hypervisage.data.preference.Preferences
 import dev.lackluster.hyperx.ui.layout.HyperXPage
@@ -24,7 +28,8 @@ fun ModuleSettingsPage() {
     val glassBlurTitle = stringResource(R.string.module_glass_blur_title)
     val glassBlurSummary = stringResource(R.string.module_glass_blur_summary)
 
-    HyperXPage(title = title) {
+    // 顶层标签页没有返回箭头，底栏由 MainTabsScreen 统一叠放
+    HyperXPage(title = title, navigationIcon = {}) {
         itemPreferenceGroup(position = ItemPosition.Single) {
             SwitchPreference(
                 key = Preferences.Module.ENABLED,
@@ -47,5 +52,7 @@ fun ModuleSettingsPage() {
                 summary = glassBlurSummary,
             )
         }
+
+        item { Spacer(modifier = Modifier.height(112.dp)) }
     }
 }
