@@ -15,6 +15,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation3.scene.Scene
+import androidx.navigation3.ui.NavDisplayTransitionEffects
 import androidx.navigationevent.NavigationEvent
 
 object HyperXNavTransitions {
@@ -38,9 +39,18 @@ object HyperXNavTransitions {
     /** 预测式返回跟手阶段要线性映射手指进度，不能用带缓动的曲线。 */
     private val PredictivePopEasing: Easing = LinearEasing
 
-    // 注：miuix 曾用一个 navigation3 fork 提供 NavDisplayTransitionEffects（页面切换时的
-    // 圆角裁剪、背后场景变暗、切换期间拦截触摸）。该 fork 在 0.9.4 下线，官方
-    // androidx.navigation3 的 NavDisplay 没有对应参数，这层特效暂时缺失。
+    // 页面切换的并排中间态由 miuix 的 navigation3 fork 提供：圆角裁剪、背后场景变暗、
+    // 切换期间拦截触摸、跟手返回的方向处理。0.9.4 只是不再发布这个 artifact，
+    // 工程仍保留 0.9.0 版本，对应 NavDisplay 多一个 transitionEffects 参数。
+    /** 全屏：原项目默认特效。 */
+    val NormalTransitionEffects = NavDisplayTransitionEffects.Default
+    /** 分屏：右栏不裁圆角，变暗 0.5，切换期间拦截输入，返回方向不跟手性边缘。 */
+    val SplitTransitionEffects = NavDisplayTransitionEffects(
+        enableCornerClip = false,
+        dimAmount = 0.5f,
+        blockInputDuringTransition = true,
+        popDirectionFollowsSwipeEdge = false,
+    )
 
     private fun enterSlide(offset: (Int) -> Int, duration: Int, easing: Easing): EnterTransition =
         slideInHorizontally(

@@ -60,7 +60,7 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 
 系统级的柔光玻璃由小米自己渲染，第三方应用拿不到，这里是用 RuntimeShader 模拟，效果接近而非逐像素一致。`minSdk 35` 保证 `isRuntimeShaderSupported()` 恒为 true。
 
-一处已知回退：miuix 曾维护一个 navigation3 的 fork，在页面切换时提供圆角裁剪、背后场景变暗、切换期间拦截触摸。该 fork 在 0.9.4 下线，改用官方 `androidx.navigation3` 后这层特效暂缺，页面仍是左右滑动转场。详见 [NOTICE.md](NOTICE.md) 的改动清单。
+原项目那套页面切换特效来自 miuix 的 navigation3 fork，即 `miuix-navigation3-ui:0.9.0`，提供圆角裁剪、背后变暗、切换期间拦截触摸、跟手返回方向处理。0.9.4 起 miuix 不再发布这个 artifact，但 0.9.0 仍可用，只额外依赖 `miuix-shapes:0.9.0`，和 runtime 1.1.3 能共存，本工程升级前就是这个组合，所以现在保留它；升级到 0.9.4 的只有 ui / preference / icons / blur 四个模块。官方 `androidx.navigation3:navigation3-ui` 不能同时引入，两边会打包同一批 `androidx.navigation3.ui` / `scene` 类。详见 [NOTICE.md](NOTICE.md)。
 
 转场节奏集中在 `hyperx-compose/ui/animation/HyperXNavTransitions.kt`：进入 350ms、返回 250ms、侧滑返回松手后收尾 180ms，统一 `FastOutSlowInEasing`，预测式返回的跟手阶段保持线性。返回场景设了 `targetContentZIndex = -1f`，让正在滑出的二级页留在上层，否则主页会直接盖住动画。别再换回手写弹簧曲线：之前那版 300ms 里前 90ms 就走完 89% 位移，剩下 210ms 几乎静止，看起来就是「进入没动画、返回拖着不动」。
 
