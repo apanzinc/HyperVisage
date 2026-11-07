@@ -1,7 +1,10 @@
 package dev.lackluster.hyperx.ui.layout
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.dp
 
 data class HyperXLayoutConfig(
@@ -33,9 +36,12 @@ val LocalLayoutPadding = compositionLocalOf { PaddingValues(0.dp) }
 /**
  * 页面转场是否正在进行。
  *
+ * 下发的是 [State] 引用而不是 Boolean 值：读值的组合只有真正用到它的那一小块
+ * （顶栏/底栏的模糊盒子），转场开始/结束时不会让整棵 NavDisplay 跟着重组。
+ * draw 阶段直接读 `value` 还能让底色切换只触发重绘，不触发重组。
+ *
  * 转场时 AnimatedContent 会同时合成两个场景，如果每个场景都保留
  * `layerBackdrop` + `progressiveTextureBlur`，每帧就要录两份内容纹理、
- * 跑两遍 RuntimeShader，动画必然掉帧。页面据此在转场期间降级成静态底色，
- * 动画结束后恢复渐进模糊。
+ * 跑两遍 RuntimeShader。页面据此在转场期间跳过模糊，动画结束后恢复。
  */
-val LocalPageTransitionRunning = compositionLocalOf { false }
+val LocalPageTransitionRunning = staticCompositionLocalOf<State<Boolean>> { mutableStateOf(false) }

@@ -55,12 +55,9 @@ fun HyperXScaffold(
     val maxBottomBlurRadius = with(density) { 25.dp.toPx() }
 
     val backdrop = rememberBlurBackdrop(containerColor)
-
-    // 转场时 AnimatedContent 同时合成两个场景。若两个场景各自录 backdrop、
-    // 各自跑 RuntimeShader，每帧的开销翻倍，500ms 动画全程掉帧。
-    // 转场期间降级为静态底色，settle 后自动恢复线性渐进模糊。
-    val isTransitioning = LocalPageTransitionRunning.current
-    val blurActive = backdrop != null && !isTransitioning
+    // 这里的条件只依赖静态配置，转场期间不拆装 layerBackdrop 节点。
+    // 拆装会重建整条绘制链，动画开始/结束各抖一下，反而更卡。
+    val hasBlurBars = (blurTopBar || blurBottomBar) && backdrop != null
 
     Scaffold(
         modifier = modifier,
@@ -72,7 +69,6 @@ fun HyperXScaffold(
                         containerColor = containerColor,
                         blurRadius = maxTopBlurRadius,
                         blurTintAlpha = blurTintAlpha,
-                        blurActive = blurActive,
                         fractionProvider = topBarBlurFractionProvider
                     ) {
                         it(layoutPadding)
@@ -90,7 +86,6 @@ fun HyperXScaffold(
                         containerColor = containerColor,
                         blurRadius = maxBottomBlurRadius,
                         blurTintAlpha = blurTintAlpha,
-                        blurActive = blurActive,
                         fractionProvider = bottomBarBlurFractionProvider
                     ) {
                         it(layoutPadding)
@@ -107,7 +102,7 @@ fun HyperXScaffold(
         contentWindowInsets = contentWindowInsets,
     ) { contentPadding ->
         Box(
-            if ((blurTopBar || blurBottomBar) && blurActive) {
+            if (hasBlurBars) {
                 Modifier.layerBackdrop(backdrop)
             } else {
                 Modifier
@@ -135,32 +130,20 @@ private fun DynamicBlurBox(
     containerColor: Color,
     blurRadius: Float,
     blurTintAlpha: Float,
-    blurActive: Boolean,
     fractionProvider: () -> Float,
     content: @Composable () -> Unit
 ) {
     if (backdrop == null) {
-        content()
-        return
-    }
-
-    // 转场降级：不录 backdrop、不跑 shader，只给一层不透明容器色。
-    // 顶栏在 HyperXPage 里是透明的，这里必须有底色，否则内容会直接透上来。
-    if (!blurActive) {
-        Box(
-            modifier = Modifier
-                .background(containerColor)
-                .drawBehind {
-                    val tint = fractionProvider().coerceIn(0f, 1f) * 0.18f
-                    if (tint > 0f) {
-                        drawRect(color = containerColor.copy(alpha = tint))
-                    }
-                }
-        ) {
+        // 模糊关闭 / 设备不支持 RuntimeShader 时顶栏是透明的，必须补底色。
+        Box(modifier = Modifier.background(containerColor)) {
             content()
         }
         return
     }
+
+    // 只订阅这一小块组合；转场状态变化不会波及 HyperXScaffold 和导航层。
+    val transitionState = LocalPageTransitionRunning.current
+    val blurEnabled = !transitionState.value
 
     val blurColors = remember(containerColor, blurTintAlpha) {
         BlurColors(
@@ -182,11 +165,21 @@ private fun DynamicBlurBox(
             blurRadius = blurRadius,
             // 顶部最强、向下线性渐清晰，也就是「从下到上逐渐模糊」
             gradient = ProgressiveBlur.Top,
+            // 0.9.4 的渐进模糊默认就是 0，显式写出防止以后默认值变动
+            // 又多出一趟逐帧噪声 pass
+            noiseCoefficient = 0f,
             colors = blurColors,
             highlight = highlight,
+            // 官方开关：false 时 draw() 直接 drawContent() 返回，
+            // measure 也不 placeWithLayer，完全跳过 shader 且不重建节点
+            enabled = blurEnabled,
         ).drawBehind {
+            // draw 阶段读 state，底色切换只触发重绘不触发重组。
+            // 顶栏在 HyperXPage 里是透明的，降级期间必须给不透明底色。
+            if (transitionState.value) {
+                drawRect(color = containerColor)
+            }
             // 只补一点底色保证标题对比度，绝不能用纯色把渐进模糊盖住。
-            // 展开态 fraction=0 完全透明，折叠后才逐渐加深。
             val fraction = fractionProvider().coerceIn(0f, 1f)
             val tint = fraction * 0.18f
             if (tint > 0f) {

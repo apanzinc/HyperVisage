@@ -8,6 +8,8 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +31,7 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 
 /** 转场动画 500ms，多留 100ms 等彻底 settle 再恢复重型模糊。 */
@@ -42,8 +45,9 @@ private const val TransitionSettleDelayMs = 600L
  *    关闭时给页面一个不注册 handler、恒 Idle 的 state：系统手势仍由应用消费，
  *    但页面不跟手，松手后走普通 popTransitionSpec。
  * 2. 转场状态机。AnimatedContent 转场时会同时合成两个场景，如果每个场景都保留
- *    layerBackdrop + progressiveTextureBlur，每帧要录两份内容纹理、跑两遍 RuntimeShader，
- *    动画全程掉帧。这里把「转场进行中」下发到页面，让顶栏/底栏在转场期间降级成静态底色。
+ *    layerBackdrop + progressiveTextureBlur，每帧要录两份内容纹理、跑两遍 RuntimeShader。
+ *    这里把「转场进行中」以 [State] 引用下发给页面，页面只用库自带的 `enabled` 开关
+ *    跳过 shader，不拆装绘制节点，也不会让整棵导航树跟着重组。
  *    导航栈变化覆盖 push / pop，手势 InProgress 覆盖跟手阶段。
  */
 @Composable
@@ -90,12 +94,18 @@ fun <T : Any> HyperXNavDisplay(
         },
     )
 
+    // 这两个 flag 只在 LaunchedEffect 里读写，组合主体不订阅它们。
+    // 否则 navBusy 一变就会重组整个 HyperXNavDisplay，连带重建 SceneInfo、
+    // gestureState 和 NavDisplay 的参数，正好卡在动画开始/结束的帧上。
     var navBusy by remember { mutableStateOf(false) }
     var gestureBusy by remember { mutableStateOf(false) }
-    val isTransitioning = navBusy || gestureBusy
+    val transitionRunning: State<Boolean> = remember {
+        derivedStateOf { navBusy || gestureBusy }
+    }
 
     LaunchedEffect(Unit) {
         snapshotFlow { backStack.size to backStack.lastOrNull() }
+            .distinctUntilChanged()
             .drop(1)
             .collectLatest {
                 navBusy = true
@@ -109,19 +119,14 @@ fun <T : Any> HyperXNavDisplay(
             gestureBusy = false
             return@LaunchedEffect
         }
+        // 跟手时 progress 每帧都在变，只关心是否处于 InProgress，
+        // 否则 collectLatest 每帧都取消重启一次 delay。
         snapshotFlow { gestureState.transitionState }
-            .collectLatest { state ->
-                if (state is InProgress) {
-                    gestureBusy = true
-                } else {
-                    // 松手后的 pop 动画同样要降级
-                    delay(TransitionSettleDelayMs)
-                    gestureBusy = false
-                }
-            }
+            .distinctUntilChanged { old, new -> (old is InProgress) == (new is InProgress) }
+            .collectLatest { state -> gestureBusy = state is InProgress }
     }
 
-    CompositionLocalProvider(LocalPageTransitionRunning provides isTransitioning) {
+    CompositionLocalProvider(LocalPageTransitionRunning provides transitionRunning) {
         NavDisplay(
             sceneState = sceneState,
             navigationEventState = if (predictiveBackEnabled) gestureState else idleState,
