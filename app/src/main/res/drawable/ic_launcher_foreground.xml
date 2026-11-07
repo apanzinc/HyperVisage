@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 由 art/gen_icons.py 从 art/icon.svg 生成，请勿手改 -->
 <!-- 图标基于 MingCute (https://www.mingcute.com/, Apache-2.0) 修改而来 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
@@ -17,9 +18,9 @@
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="324.36"
-                android:startY="155.58"
-                android:endX="324.36"
+                android:startX="328.17"
+                android:startY="153.10"
+                android:endX="328.17"
                 android:endY="495.29"
                 android:startColor="#FFFFFFFF"
                 android:endColor="#CCFFFFFF" />
@@ -32,10 +33,10 @@
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="324.36"
+                android:startX="328.17"
                 android:startY="495.29"
-                android:endX="324.36"
-                android:endY="155.58"
+                android:endX="328.17"
+                android:endY="153.10"
                 android:startColor="#992B96FC"
                 android:endColor="#002B96FC" />
         </aapt:attr>
