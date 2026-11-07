@@ -26,3 +26,6 @@ Thumbs.db
 
 # 临时日志
 *.log
+
+# 调试产物（截图等）
+/dev/shots/
