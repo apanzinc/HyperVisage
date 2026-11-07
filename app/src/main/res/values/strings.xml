@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">HyperVisage</string>
+    <string name="xposed_desc">A beautification module for HyperOS 4</string>
+
+    <string name="common_enabled">已启用</string>
+    <string name="common_disabled">已禁用</string>
+    <string name="common_general">通用</string>
+    <string name="common_default">默认</string>
+
+    <string name="page_home" translatable="false">@string/app_name</string>
+    <string name="page_module_settings">模块设置</string>
+    <string name="page_example">示例功能</string>
+    <string name="page_about">关于</string>
+
+    <string name="home_group_scopes">生效范围</string>
+    <string name="home_group_other">其他</string>
+
+    <string name="module_enabled_title">启用模块</string>
+    <string name="module_enabled_summary">关闭后所有 Hook 均不生效</string>
+    <string name="module_debug_title">调试日志</string>
+    <string name="module_debug_summary">输出详细日志到 LSPosed 日志（verbose）</string>
+
+    <string name="example_switch_title">示例开关</string>
+    <string name="example_switch_summary">一个最小可用的功能开关，用来演示设置与 Hook 的联动</string>
+    <string name="example_toast_title">显示提示</string>
+    <string name="example_toast_summary">触发时弹出一条 Toast，用于验证 Hook 是否生效</string>
+
+    <string name="reboot_required">修改已保存，重启目标应用后生效</string>
+
+    <string name="about_build_time">构建时间</string>
+    <string name="about_group_credits">致谢与许可</string>
+    <string name="about_icon_title">应用图标</string>
+    <string name="about_icon_summary">图标由 MingCute（mingcute.com）提供，基于 Apache-2.0 授权，并作了修改</string>
+    <string name="about_license_title">MingCute 图标许可</string>
+    <string name="about_license_summary">Apache License 2.0</string>
+    <string name="about_project_license">本项目许可</string>
+</resources>
