@@ -69,7 +69,7 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 
 原项目那套页面切换特效来自 miuix 的 navigation3 fork，即 `miuix-navigation3-ui:0.9.0`，提供圆角裁剪、背后变暗、切换期间拦截触摸、跟手返回方向处理。0.9.4 起 miuix 不再发布这个 artifact，但 0.9.0 仍可用，只额外依赖 `miuix-shapes:0.9.0`，和 runtime 1.1.3 能共存，本工程升级前就是这个组合，所以现在保留它；升级到 0.9.4 的只有 ui / preference / icons / blur 四个模块。官方 `androidx.navigation3:navigation3-ui` 不能同时引入，两边会打包同一批 `androidx.navigation3.ui` / `scene` 类。详见 [NOTICE.md](NOTICE.md)。
 
-转场节奏集中在 `hyperx-compose/ui/animation/HyperXNavTransitions.kt`：进入 350ms、返回 250ms、侧滑返回松手后收尾 180ms，统一 `FastOutSlowInEasing`，预测式返回的跟手阶段保持线性。返回场景设了 `targetContentZIndex = -1f`，让正在滑出的二级页留在上层，否则主页会直接盖住动画。别再换回手写弹簧曲线：之前那版 300ms 里前 90ms 就走完 89% 位移，剩下 210ms 几乎静止，看起来就是「进入没动画、返回拖着不动」。
+转场节奏集中在 `hyperx-compose/ui/animation/HyperXNavTransitions.kt`：进入 500ms、返回 500ms、侧滑返回跟手阶段 550ms，与参考项目及 miuix fork 的 `defaultTransitionSpec` / `defaultPopTransitionSpec` 完全一致。进入和返回用欠阻尼弹簧 `NavTransitionEasing(0.8, 0.95)`，跟手阶段保持线性。曾缩短到 350/250/180ms 并改用 `FastOutSlowInEasing`，可见滑动被压进前 100ms，观感是「闪一下」，已回退。弹簧参数别调到临界阻尼 `(0.5, 1.0)`：判别式为 0 时 `w=0`、`c2=-Inf` 会算出 NaN 导致切换崩溃，类里已对判别式非正的情况留了临界阻尼分支兜底。返回时的层级由 fork 的 `NavDisplay` 自己算 `targetZIndex`，自定义 spec 里设 `targetContentZIndex` 会被覆盖，不必再设。
 
 ## 崩溃日志
 

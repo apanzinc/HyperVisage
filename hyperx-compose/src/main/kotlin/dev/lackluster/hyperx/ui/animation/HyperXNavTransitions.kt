@@ -8,34 +8,92 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplayTransitionEffects
 import androidx.navigationevent.NavigationEvent
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/**
+ * 参考项目（以及 miuix navigation3 fork 内部）使用的欠阻尼弹簧曲线。
+ *
+ * 之前为了减少动画时长把参数从 (0.8, 0.95) 改成了 (0.5, 1.0)，正好落在临界阻尼上，
+ * 判别式为 0 → w=0、c2=-Inf → transform() 全程 NaN，页面切换直接崩。
+ * 这里恢复原参数，并对判别式非正的情况留一条临界阻尼分支，避免以后再调参数时踩同一个坑。
+ */
+@Immutable
+class NavTransitionEasing(
+    response: Float = 0.8f,
+    damping: Float = 0.95f,
+) : Easing {
+    private val r: Float
+    private val w: Float
+    private val c2: Float
+    private val criticallyDamped: Boolean
+    private val a: Float
+    private val normalizer: Float
+
+    init {
+        val omega = 2.0 * PI / response
+        val k = omega * omega
+        val c = damping * 4.0 * PI / response
+        val discriminant = 4.0 * k - c * c
+
+        if (discriminant > 1e-6) {
+            criticallyDamped = false
+            w = (sqrt(discriminant) / 2.0).toFloat()
+            r = (-c / 2.0).toFloat()
+            c2 = r / w
+            a = 0f
+            normalizer = 1f
+        } else {
+            criticallyDamped = true
+            w = 0f
+            r = 0f
+            c2 = 0f
+            a = (c / 2.0).toFloat()
+            normalizer = (1.0 - exp(-a.toDouble()) * (1.0 + a)).toFloat().coerceAtLeast(1e-6f)
+        }
+    }
+
+    override fun transform(fraction: Float): Float {
+        if (fraction <= 0f) return 0f
+        if (fraction >= 1f) return 1f
+
+        val t = fraction.toDouble()
+        val value = if (criticallyDamped) {
+            (1.0 - exp(-a * t) * (1.0 + a * t)) / normalizer
+        } else {
+            exp(r * t) * (-cos(w * t) + c2 * sin(w * t)) + 1.0
+        }
+        return if (value.isFinite()) value.toFloat() else fraction
+    }
+}
 
 object HyperXNavTransitions {
-    /** 进入：留足可见的滑动时间，但整体不拖沓。 */
-    private const val EnterDuration = 350
-    /** 返回：比进入更干脆，避免松手后还在慢慢挪。 */
-    private const val PopDuration = 250
-    /** 侧滑返回松手后的收尾：跟手阶段已经走过大半，只需快速落位。 */
-    private const val PredictivePopDuration = 180
-
     /**
-     * 标准 FastOutSlowIn (0.4, 0, 0.2, 1)：起步、中段、收尾的位移分布均匀，
-     * 0.5 时约 78%、0.7 时约 94%，整段动画都看得见。
-     *
-     * 之前手写的阻尼弹簧在 damping=1 时判别式为 0（w=0、c2=-Inf）会算出 NaN；
-     * 换成临界阻尼阶跃曲线后虽然不崩了，但 300ms 里前 90ms 就走完 89%，
-     * 剩下 210ms 几乎不动 —— 观感就是「进入没有过渡、返回拖着不结束」。
-     * 这里不再用手写弹簧，直接用标准曲线。
+     * 与参考项目、miuix fork 的 defaultTransitionSpec / defaultPopTransitionSpec 完全一致。
+     * 曾缩短到 350/250/180ms，配合 FastOutSlowIn 后可见滑动被压进前 100ms，观感是「闪一下」。
      */
-    private val NavAnimationEasing: Easing = FastOutSlowInEasing
+    private const val EnterDuration = 500
+    private const val PopDuration = 500
+    /**
+     * 跟手阶段线性映射手指进度；松手后 fork 会按 transition.totalDurationNanos
+     * 和当前 fraction 折算剩余时长，所以这里保持原项目的 550ms。
+     */
+    private const val PredictivePopDuration = 550
+
+    /** 原项目的欠阻尼弹簧，(0.8, 0.95) 判别式 > 0，不会算出 NaN。 */
+    private val NavAnimationEasing: Easing = NavTransitionEasing(0.8f, 0.95f)
     /** 预测式返回跟手阶段要线性映射手指进度，不能用带缓动的曲线。 */
     private val PredictivePopEasing: Easing = LinearEasing
 
@@ -64,10 +122,8 @@ object HyperXNavTransitions {
             animationSpec = tween(durationMillis = duration, easing = easing),
         )
 
-    /** 新页面盖在旧页面之上。 */
-    private const val PushZIndex = 0f
-    /** 返回时让正在滑出的二级页面保持在上层，否则主页会直接盖住整个动画。 */
-    private const val PopZIndex = -1f
+    // fork 的 NavDisplay 会用自己算出的 targetZIndex 覆盖 ContentTransform.targetContentZIndex
+    //（pop 时 target 场景 = initialZIndex - 1），所以这里不需要、也不应该再设 z-index。
 
     fun <T : Any> normalTransitionSpec(layoutDirection: LayoutDirection):
             AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform = {
@@ -75,7 +131,6 @@ object HyperXNavTransitions {
         ContentTransform(
             enterSlide({ it * sign }, EnterDuration, NavAnimationEasing),
             exitSlide({ -it / 4 * sign }, EnterDuration, NavAnimationEasing),
-            targetContentZIndex = PushZIndex,
         )
     }
 
@@ -85,7 +140,6 @@ object HyperXNavTransitions {
         ContentTransform(
             enterSlide({ -it / 4 * sign }, PopDuration, NavAnimationEasing),
             exitSlide({ it * sign }, PopDuration, NavAnimationEasing),
-            targetContentZIndex = PopZIndex,
         )
     }
 
@@ -95,7 +149,6 @@ object HyperXNavTransitions {
         ContentTransform(
             enterSlide({ -it / 4 * sign }, PredictivePopDuration, PredictivePopEasing),
             exitSlide({ it * sign }, PredictivePopDuration, PredictivePopEasing),
-            targetContentZIndex = PopZIndex,
         )
     }
 
@@ -105,18 +158,16 @@ object HyperXNavTransitions {
         ContentTransform(
             enterSlide({ it * sign }, EnterDuration, NavAnimationEasing),
             exitSlide({ it * sign }, EnterDuration, NavAnimationEasing),
-            targetContentZIndex = PushZIndex,
         )
     }
 
-    /** 分屏返回要跟进入反向，之前复用 splitTransitionSpec 导致方向错。 */
+    /** 分屏返回要跟进入反向，原项目复用 splitTransitionSpec 导致方向错。 */
     fun <T : Any> splitPopTransitionSpec(layoutDirection: LayoutDirection):
             AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform = {
         val sign = if (layoutDirection == LayoutDirection.Rtl) -1 else 1
         ContentTransform(
             enterSlide({ -it * sign }, PopDuration, NavAnimationEasing),
             exitSlide({ -it * sign }, PopDuration, NavAnimationEasing),
-            targetContentZIndex = PopZIndex,
         )
     }
 
@@ -126,7 +177,6 @@ object HyperXNavTransitions {
         ContentTransform(
             enterSlide({ -it * sign }, PredictivePopDuration, PredictivePopEasing),
             exitSlide({ -it * sign }, PredictivePopDuration, PredictivePopEasing),
-            targetContentZIndex = PopZIndex,
         )
     }
 }
