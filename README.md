@@ -49,6 +49,18 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 3. `hook/rules/` 加一个 Rule，`onInit` 里 `observe` 那个 key
 4. 在对应 scope 的 `onReady()` 里 `attach` 这个 Rule
 
+## 柔光玻璃
+
+组件库原版停在 2026 年 6 月，依赖 miuix 0.9.0，早于 HyperOS 4 的柔光玻璃设计语言，因此本项目把它升到了 miuix 0.9.4。
+
+- `hyperx-compose/ui/effect/GlassEffect.kt`：`BloomStroke` 边缘光晕 + `rememberTiltLight` 随设备倾斜移动的主光源，深浅主题分别取预设
+- `hyperx-compose/ui/layout/HyperXScaffold.kt`：顶栏 / 底栏的模糊层接上高光
+- `HyperXLayoutConfig.isGlassHighlightEnabled`：总开关，默认开
+
+系统级的柔光玻璃由小米自己渲染，第三方应用拿不到，这里是用 RuntimeShader 模拟，效果接近而非逐像素一致。`minSdk 35` 保证 `isRuntimeShaderSupported()` 恒为 true。
+
+一处已知回退：miuix 曾维护一个 navigation3 的 fork，在页面切换时提供圆角裁剪、背后场景变暗、切换期间拦截触摸。该 fork 在 0.9.4 下线，改用官方 `androidx.navigation3` 后这层特效暂缺，滑动动画本身保持不变。详见 [NOTICE.md](NOTICE.md) 的改动清单。
+
 ## 图标
 
 应用图标基于 [MingCute](https://www.mingcute.com/) 的图标修改而来（调整了配色、构图与尺寸），依 Apache-2.0 授权使用。
@@ -59,4 +71,4 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 GPL-3.0-only，见 [LICENSE](LICENSE)。
 
 本项目的架构设计参考了 [XiaomiHelper](https://github.com/HowieHChen/XiaomiHelper)（GPL-3.0）。
-`hyperx-compose/` 目录来自 [hyperx-compose](https://github.com/HowieHChen/hyperx-compose)（Apache-2.0），版权归原作者。
+`hyperx-compose/` 目录来自 [hyperx-compose](https://github.com/HowieHChen/hyperx-compose)（Apache-2.0），已作适配性修改，版权归原作者；改动清单见 [NOTICE.md](NOTICE.md)。

@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.miuixShape
+import dev.lackluster.hyperx.ui.theme.hyperxShape
 
 @Composable
 fun TabRow(
@@ -41,7 +41,7 @@ fun TabRow(
     cornerRadius: Dp = TabRowDefaults.TabRowCornerRadius,
     onTabSelected: (Int) -> Unit,
 ) {
-    val shape = miuixShape(cornerRadius)
+    val shape = hyperxShape(cornerRadius)
 
     Row(
         modifier = modifier

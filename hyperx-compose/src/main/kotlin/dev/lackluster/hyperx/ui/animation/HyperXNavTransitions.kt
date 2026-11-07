@@ -10,7 +10,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation3.scene.Scene
-import androidx.navigation3.ui.NavDisplayTransitionEffects
 import androidx.navigationevent.NavigationEvent
 import kotlin.math.PI
 import kotlin.math.abs
@@ -70,14 +69,9 @@ class NavTransitionEasing(
 object HyperXNavTransitions {
     private val NavAnimationEasing = NavTransitionEasing(0.8f, 0.95f)
 
-    val NormalTransitionEffects = NavDisplayTransitionEffects.Default
-
-    val SplitTransitionEffects = NavDisplayTransitionEffects(
-        enableCornerClip = false,
-        dimAmount = 0.5f,
-        blockInputDuringTransition = true,
-        popDirectionFollowsSwipeEdge = false
-    )
+    // 注：miuix 曾用一个 navigation3 fork 提供 NavDisplayTransitionEffects（页面切换时的
+    // 圆角裁剪、背后场景变暗、切换期间拦截触摸）。该 fork 在 0.9.4 下线，官方
+    // androidx.navigation3 的 NavDisplay 没有对应参数，这层特效暂时缺失，过渡动画本身不受影响。
 
     fun <T : Any> normalTransitionSpec(layoutDirection: LayoutDirection):
             AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform = {

@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.lackluster.hyperx.ui.effect.rememberBlurBackdrop
+import dev.lackluster.hyperx.ui.effect.rememberGlassHighlight
 import top.yukonga.miuix.kmp.basic.FabPosition
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
@@ -138,12 +139,19 @@ private fun DynamicBlurBox(
         )
     }
 
+    // 柔光玻璃：边缘光晕 + 随倾斜移动的高光
+    val uiConfig = LocalHyperXLayoutConfig.current
+    val highlight = rememberGlassHighlight(
+        enabled = uiConfig.isBlurEnabled && uiConfig.isGlassHighlightEnabled,
+    )
+
     Box(
         modifier = Modifier.textureBlur(
             backdrop = backdrop,
             shape = RectangleShape,
             blurRadius = blurRadius,
             colors = blurColors,
+            highlight = highlight,
         ).drawBehind {
             val fraction = fractionProvider()
             val overlayAlpha = (1f - fraction).coerceIn(0f, 1f)

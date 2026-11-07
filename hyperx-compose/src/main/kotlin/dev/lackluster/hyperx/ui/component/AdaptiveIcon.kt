@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.theme.miuixShape
+import dev.lackluster.hyperx.ui.theme.hyperxShape
 
 enum class IconSize(val dp: Dp) {
     Small(dp = 28.dp),
@@ -62,7 +62,7 @@ fun AdaptiveIcon(
             if (icon.cornerRadius != Dp.Unspecified) {
                 Modifier.clip(
                     if (icon.cornerRadius >= sizeDp / 2) CircleShape
-                    else miuixShape(icon.cornerRadius)
+                    else hyperxShape(icon.cornerRadius)
                 )
             } else Modifier
         )

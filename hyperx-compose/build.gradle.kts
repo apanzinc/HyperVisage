@@ -43,13 +43,14 @@ android {
 }
 
 dependencies {
-    api("top.yukonga.miuix.kmp:miuix-ui:0.9.0")
-    api("top.yukonga.miuix.kmp:miuix-preference:0.9.0")
-    api("top.yukonga.miuix.kmp:miuix-icons:0.9.0")
-    api("top.yukonga.miuix.kmp:miuix-blur:0.9.0")
+    api("top.yukonga.miuix.kmp:miuix-ui:0.9.4")
+    api("top.yukonga.miuix.kmp:miuix-preference:0.9.4")
+    api("top.yukonga.miuix.kmp:miuix-icons:0.9.4")
+    api("top.yukonga.miuix.kmp:miuix-blur:0.9.4")
     api("androidx.compose.foundation:foundation:1.11.3")
     api("androidx.activity:activity-compose:1.13.0")
-    api("top.yukonga.miuix.kmp:miuix-navigation3-ui:0.9.0")
+    // miuix-navigation3-ui 在 0.9.4 起不再发布；本项目只用到 androidx 的 NavDisplay，直接依赖官方库
+    api("androidx.navigation3:navigation3-ui:1.1.3")
     api("androidx.navigation3:navigation3-runtime:1.1.3")
     api("org.jetbrains.androidx.navigationevent:navigationevent-compose:1.1.0")
     api("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")

@@ -20,7 +20,7 @@ import dev.lackluster.hyperx.ui.theme.DisabledAlpha
 import dev.lackluster.hyperx.ui.theme.contentColorFor
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.miuixShape
+import dev.lackluster.hyperx.ui.theme.hyperxShape
 
 @Composable
 fun Card(
@@ -71,7 +71,7 @@ fun Card(
 
 object CardDefaults {
     val shape: Shape
-        @Composable get() = miuixShape(16.dp)
+        @Composable get() = hyperxShape(16.dp)
 
     val contentPaddingZero: PaddingValues = PaddingValues.Zero
     val contentPadding: PaddingValues = PaddingValues(16.dp)

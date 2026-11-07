@@ -16,7 +16,6 @@ fun HyperXTheme(
     }
     MiuixTheme(
         controller = controller,
-        smoothRounding = true,
         content = content
     )
 }

@@ -147,7 +147,6 @@ private fun UnifiedNormalLayout(
             transitionSpec = HyperXNavTransitions.normalTransitionSpec(layoutDirection),
             popTransitionSpec = HyperXNavTransitions.normalPopTransitionSpec(layoutDirection),
             predictivePopTransitionSpec = HyperXNavTransitions.normalPredictivePopTransitionSpec(layoutDirection),
-            transitionEffects = HyperXNavTransitions.NormalTransitionEffects,
             entryProvider = { key ->
                 when (key) {
                     // 全屏下，遇到 Main 路由直接渲染主页
@@ -212,7 +211,6 @@ private fun UnifiedSplitLayout(
                 transitionSpec = HyperXNavTransitions.splitTransitionSpec(layoutDirection),
                 popTransitionSpec = HyperXNavTransitions.splitTransitionSpec(layoutDirection),
                 predictivePopTransitionSpec = HyperXNavTransitions.splitPredictivePopTransitionSpec(layoutDirection),
-                transitionEffects = HyperXNavTransitions.SplitTransitionEffects,
                 entryProvider = { key ->
                     when (key) {
                         is HyperXRoute.Main -> NavEntry(key) { emptyContent() }
