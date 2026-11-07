@@ -1,5 +1,6 @@
 package dev.lackluster.hyperx.ui.layout
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -55,16 +56,23 @@ fun HyperXScaffold(
 
     val backdrop = rememberBlurBackdrop(containerColor)
 
+    // 转场时 AnimatedContent 同时合成两个场景。若两个场景各自录 backdrop、
+    // 各自跑 RuntimeShader，每帧的开销翻倍，500ms 动画全程掉帧。
+    // 转场期间降级为静态底色，settle 后自动恢复线性渐进模糊。
+    val isTransitioning = LocalPageTransitionRunning.current
+    val blurActive = backdrop != null && !isTransitioning
+
     Scaffold(
         modifier = modifier,
         topBar = @Composable {
             topBar?.let {
-                if (blurTopBar && backdrop != null) {
+                if (blurTopBar) {
                     DynamicBlurBox(
                         backdrop = backdrop,
                         containerColor = containerColor,
                         blurRadius = maxTopBlurRadius,
                         blurTintAlpha = blurTintAlpha,
+                        blurActive = blurActive,
                         fractionProvider = topBarBlurFractionProvider
                     ) {
                         it(layoutPadding)
@@ -76,12 +84,13 @@ fun HyperXScaffold(
         },
         bottomBar = @Composable {
             bottomBar?.let {
-                if (blurBottomBar && backdrop != null) {
+                if (blurBottomBar) {
                     DynamicBlurBox(
                         backdrop = backdrop,
                         containerColor = containerColor,
                         blurRadius = maxBottomBlurRadius,
                         blurTintAlpha = blurTintAlpha,
+                        blurActive = blurActive,
                         fractionProvider = bottomBarBlurFractionProvider
                     ) {
                         it(layoutPadding)
@@ -98,7 +107,7 @@ fun HyperXScaffold(
         contentWindowInsets = contentWindowInsets,
     ) { contentPadding ->
         Box(
-            if ((blurTopBar || blurBottomBar) && backdrop != null) {
+            if ((blurTopBar || blurBottomBar) && blurActive) {
                 Modifier.layerBackdrop(backdrop)
             } else {
                 Modifier
@@ -126,11 +135,30 @@ private fun DynamicBlurBox(
     containerColor: Color,
     blurRadius: Float,
     blurTintAlpha: Float,
+    blurActive: Boolean,
     fractionProvider: () -> Float,
     content: @Composable () -> Unit
 ) {
     if (backdrop == null) {
         content()
+        return
+    }
+
+    // 转场降级：不录 backdrop、不跑 shader，只给一层不透明容器色。
+    // 顶栏在 HyperXPage 里是透明的，这里必须有底色，否则内容会直接透上来。
+    if (!blurActive) {
+        Box(
+            modifier = Modifier
+                .background(containerColor)
+                .drawBehind {
+                    val tint = fractionProvider().coerceIn(0f, 1f) * 0.18f
+                    if (tint > 0f) {
+                        drawRect(color = containerColor.copy(alpha = tint))
+                    }
+                }
+        ) {
+            content()
+        }
         return
     }
 

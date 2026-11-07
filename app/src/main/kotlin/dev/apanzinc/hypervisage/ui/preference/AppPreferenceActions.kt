@@ -25,18 +25,17 @@ class AppPreferenceActions(
         merge(store.updates, appSettings.updates)
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Any> get(key: PreferenceKey<T>): T =
-        if (key == Preferences.App.PREDICTIVE_BACK) {
-            appSettings.predictiveBack.value as T
-        } else {
-            store.get(key)
-        }
+    override fun <T : Any> get(key: PreferenceKey<T>): T = when (key) {
+        Preferences.App.PREDICTIVE_BACK -> appSettings.predictiveBack.value as T
+        Preferences.App.GLASS_BLUR -> appSettings.glassBlur.value as T
+        else -> store.get(key)
+    }
 
     override fun <T : Any> update(key: PreferenceKey<T>, value: T) {
-        if (key == Preferences.App.PREDICTIVE_BACK) {
-            appSettings.setPredictiveBack(value as Boolean)
-        } else {
-            store.put(key, value)
+        when (key) {
+            Preferences.App.PREDICTIVE_BACK -> appSettings.setPredictiveBack(value as Boolean)
+            Preferences.App.GLASS_BLUR -> appSettings.setGlassBlur(value as Boolean)
+            else -> store.put(key, value)
         }
     }
 }

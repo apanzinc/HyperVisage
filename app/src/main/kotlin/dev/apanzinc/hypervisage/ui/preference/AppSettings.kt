@@ -32,9 +32,20 @@ class AppSettings(context: Context) {
     )
     val predictiveBack = _predictiveBack.asStateFlow()
 
+    private val _glassBlur = MutableStateFlow(
+        prefs.getBoolean(Preferences.App.GLASS_BLUR.name, true),
+    )
+    val glassBlur = _glassBlur.asStateFlow()
+
     fun setPredictiveBack(enabled: Boolean) {
         prefs.edit { putBoolean(Preferences.App.PREDICTIVE_BACK.name, enabled) }
         _predictiveBack.value = enabled
         _updates.tryEmit(Preferences.App.PREDICTIVE_BACK)
+    }
+
+    fun setGlassBlur(enabled: Boolean) {
+        prefs.edit { putBoolean(Preferences.App.GLASS_BLUR.name, enabled) }
+        _glassBlur.value = enabled
+        _updates.tryEmit(Preferences.App.GLASS_BLUR)
     }
 }

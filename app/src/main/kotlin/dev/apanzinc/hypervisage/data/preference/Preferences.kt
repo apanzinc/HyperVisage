@@ -22,6 +22,7 @@ object Preferences {
     /** 只影响本 App 界面，存本地，不进 remote preferences。 */
     object App {
         val PREDICTIVE_BACK = PreferenceKey("predictive_back", false)
+        val GLASS_BLUR = PreferenceKey("glass_blur", true)
     }
 
     object Example {

@@ -19,7 +19,8 @@
   | `ui/theme/HyperXTheme.kt` | 适配 miuix 0.9.4 移除的 `smoothRounding` |
   | `ui/theme/HyperXShapes.kt` | 新增：`hyperxShape` 替代 miuix 0.9.4 移除的 `miuixShape` |
   | `ui/component/AdaptiveIcon.kt`、`ui/component/Card.kt`、`ui/layout/TabRow.kt` | 改用 `hyperxShape` |
-  | `ui/layout/HyperXNavDisplay.kt`、`ui/layout/HyperXAppLayout.kt` | 新增 `HyperXNavDisplay`：照 fork 的 `NavDisplay(entries = ...)` 拆开一层，改用 `NavDisplay(sceneState, navigationEventState)` 重载并加 `predictiveBackEnabled`。关闭预测返回时给页面一个恒 Idle 的手势 state，返回不跟手但仍走普通 pop 动画 |
+  | `ui/layout/HyperXNavDisplay.kt`、`ui/layout/HyperXAppLayout.kt` | 新增 `HyperXNavDisplay`：按 fork 的 `NavDisplay(entries = ...)` 重载 1:1 组装，改用 `NavDisplay(sceneState, navigationEventState)` 重载并加 `predictiveBackEnabled`。关闭预测返回时给页面一个恒 Idle 的手势 state，返回不跟手但仍走普通 pop 动画；另加转场状态机（导航栈变化 + 手势 `InProgress`），通过 `LocalPageTransitionRunning` 下发 |
+  | `ui/layout/HyperXScaffold.kt`、`ui/layout/LayoutLocals.kt` | 顶栏/底栏的 `layerBackdrop` + `progressiveTextureBlur` 在转场期间降级为不透明容器色：AnimatedContent 会同时合成两个场景，原实现每帧录两份纹理、跑两遍 RuntimeShader 导致掉帧；新增 `LocalPageTransitionRunning` |
   | `ui/animation/HyperXNavTransitions.kt`、`ui/layout/HyperXAppLayout.kt` | 恢复 `NavDisplayTransitionEffects`（原项目的圆角裁剪 / 变暗 / 拦截输入 / 跟手返回方向，继续用 miuix fork 的 `NavDisplay`）；恢复参考项目的欠阻尼弹簧 `NavTransitionEasing(0.8, 0.95)` 与 500/500/550ms 时长，替换掉此前 350/250/180ms + `FastOutSlowInEasing` 造成的「闪一下」；对判别式非正的情况保留临界阻尼分支，避免参数调到 `(0.5, 1.0)` 时 `w=0`、`c2=-Inf` 算出 NaN 崩溃；移除无效的 `targetContentZIndex`（fork 的 `NavDisplay` 会用自己的 `targetZIndex` 覆盖）；新增 `splitPopTransitionSpec` 修正分屏返回方向 |
 
   版权与原许可声明保留于原作者。依据 Apache-2.0 第 4 条，此处明确标注文件已被修改。

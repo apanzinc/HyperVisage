@@ -52,11 +52,12 @@ class MainActivity : HyperXActivity() {
         val preferenceActions: AppPreferenceActions = koinInject()
         val appSettings: AppSettings = koinInject()
         val predictiveBack by appSettings.predictiveBack.collectAsState()
+        val glassBlur by appSettings.glassBlur.collectAsState()
 
         // 以后可以接上"是否分屏""模糊强度"这类模块自己的外观设置
         val layoutConfig = HyperXLayoutConfig(
             isSplitScreenEnabled = true,
-            isBlurEnabled = true,
+            isBlurEnabled = glassBlur,
             // 顶栏是贴边矩形，BloomStroke 的玻璃描边会显示成一条白色亮线，关掉
             isGlassHighlightEnabled = false,
         )

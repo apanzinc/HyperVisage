@@ -29,3 +29,13 @@ val LocalHyperXLayoutConfig = compositionLocalOf { HyperXLayoutConfig() }
 val LocalPageMode = compositionLocalOf { PageLayoutMode.FULL_SCREEN }
 
 val LocalLayoutPadding = compositionLocalOf { PaddingValues(0.dp) }
+
+/**
+ * 页面转场是否正在进行。
+ *
+ * 转场时 AnimatedContent 会同时合成两个场景，如果每个场景都保留
+ * `layerBackdrop` + `progressiveTextureBlur`，每帧就要录两份内容纹理、
+ * 跑两遍 RuntimeShader，动画必然掉帧。页面据此在转场期间降级成静态底色，
+ * 动画结束后恢复渐进模糊。
+ */
+val LocalPageTransitionRunning = compositionLocalOf { false }

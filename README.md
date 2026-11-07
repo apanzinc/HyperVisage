@@ -54,14 +54,23 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 - 模块设置页的「预测返回」默认关闭。开启后侧滑返回跟手，关闭后不跟手、松手直接走普通返回动画。
 - 该开关只影响本 App 界面，存本地 SharedPreferences（`AppSettings`），不依赖 LSPosed 服务是否连上。
 - fork 的 `NavDisplay(backStack = ...)` 内部会无条件注册 `NavigationBackHandler`，外部没法关掉跟手效果。`HyperXNavDisplay` 照它的 `NavDisplay(entries = ...)` 重载拆开一层，改用 `NavDisplay(sceneState, navigationEventState)` 重载：系统返回手势始终由应用消费，但关闭时交给页面的是另一个永远停在 Idle 的手势 state。
+- 模块设置页的「界面模糊」默认开启，走本地存储。关掉后完全不创建 `LayerBackdrop`、不跑 RuntimeShader，可用来直接判断转场掉帧是不是模糊造成的。
 - 主界面底部叠加 miuix 0.9.4 的 `FloatingNavigationBar`，三个入口分别是主页、设置、关于；列表末尾留了 112dp，让最后一项能滚出遮挡。
+
+## 转场性能
+
+`AnimatedContent` 转场时会同时合成两个场景。原先每个场景各自 `layerBackdrop` 录制内容纹理、各自跑一遍 `progressiveTextureBlur` 的 RuntimeShader，每帧开销翻倍，500ms 动画全程掉帧，这才是「卡」的根因，和动画时长无关。
+
+- `HyperXNavDisplay` 维护转场状态机：导航栈变化覆盖 push / pop，手势 `InProgress` 覆盖跟手阶段；通过 `LocalPageTransitionRunning` 下发到页面，动画 settle 后延迟 100ms 恢复
+- `HyperXScaffold` 在转场期间不挂 `layerBackdrop`、不跑 shader，顶栏/底栏降级为不透明容器色；顶栏本身是透明的，这一步必须给底色，否则内容会直接透上来
+- 静止状态和转场结束后仍是完整的线性渐进模糊，只有切换过程降级
 
 ## 柔光玻璃
 
 组件库原版停在 2026 年 6 月，依赖 miuix 0.9.0，早于 HyperOS 4 的柔光玻璃设计语言，因此本项目把它升到了 miuix 0.9.4。
 
 - `hyperx-compose/ui/effect/GlassEffect.kt`：`BloomStroke` 边缘光晕 + `rememberTiltLight` 随设备倾斜移动的主光源，深浅主题分别取预设
-- `hyperx-compose/ui/layout/HyperXScaffold.kt`：改用 `progressiveTextureBlur` + `ProgressiveBlur.Top` 做线性渐变模糊（顶部最强、向下渐清晰，也就是从下到上逐渐模糊），并移除盖住模糊的纯色层
+- `hyperx-compose/ui/layout/HyperXScaffold.kt`：改用 `progressiveTextureBlur` + `ProgressiveBlur.Top` 做线性渐变模糊（顶部最强、向下渐清晰，也就是从下到上逐渐模糊），并移除盖住模糊的纯色层；转场期间按 `LocalPageTransitionRunning` 降级为静态底色，见「转场性能」
 - `HyperXLayoutConfig.isGlassHighlightEnabled`：高光总开关，**默认关**。顶栏/底栏是贴边矩形，`BloomStroke` 的描边会显示成一条白色亮线；只有卡片类圆角玻璃面才建议打开
 - `HyperXLayoutConfig.lightBlurAlpha / darkBlurAlpha`：玻璃底色浓度，默认 0.32 / 0.28；调太高会糊成一块纯色，把渐变遮住
 
