@@ -5,8 +5,11 @@ package dev.apanzinc.hypervisage.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavEntry
 import dev.apanzinc.hypervisage.data.Route
+import dev.apanzinc.hypervisage.debug.CrashRecorder
 import dev.apanzinc.hypervisage.ui.pages.AboutPage
 import dev.apanzinc.hypervisage.ui.pages.ExamplePage
 import dev.apanzinc.hypervisage.ui.pages.HomePage
@@ -16,18 +19,41 @@ import dev.lackluster.hyperx.core.HyperXActivity
 import dev.lackluster.hyperx.ui.layout.HyperXAppLayout
 import dev.lackluster.hyperx.ui.layout.HyperXLayoutConfig
 import dev.lackluster.hyperx.ui.preference.core.LocalPreferenceActions
+import dev.lackluster.hyperx.ui.theme.HyperXTheme
 import org.koin.compose.koinInject
 
 class MainActivity : HyperXActivity() {
 
     @Composable
     override fun AppContent() {
+        // 上次崩溃的日志优先展示，方便不接 ADB 时直接复制堆栈
+        val crashReport = remember { mutableStateOf(CrashRecorder.read(this)) }
+        val report = crashReport.value
+        if (report != null) {
+            HyperXTheme {
+                CrashReportScreen(
+                    report = report,
+                    onClose = {
+                        CrashRecorder.clear(this)
+                        crashReport.value = null
+                    },
+                )
+            }
+        } else {
+            MainContent()
+        }
+    }
+
+    @Composable
+    private fun MainContent() {
         val preferenceActions: AppPreferenceActions = koinInject()
 
         // 以后可以接上"是否分屏""模糊强度"这类模块自己的外观设置
         val layoutConfig = HyperXLayoutConfig(
             isSplitScreenEnabled = true,
             isBlurEnabled = true,
+            // 顶栏是贴边矩形，BloomStroke 的玻璃描边会显示成一条白色亮线，关掉
+            isGlassHighlightEnabled = false,
         )
 
         CompositionLocalProvider(LocalPreferenceActions provides preferenceActions) {

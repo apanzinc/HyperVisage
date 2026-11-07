@@ -140,7 +140,8 @@ private fun DynamicBlurBox(
         )
     }
 
-    // 柔光玻璃：边缘光晕 + 随倾斜移动的高光
+    // 柔光玻璃描边是可选的：顶栏/底栏用 RectangleShape，描边会变成一条白色亮线，
+    // 因此默认不启用；只有卡片类的圆角玻璃面才需要它。
     val uiConfig = LocalHyperXLayoutConfig.current
     val highlight = rememberGlassHighlight(
         enabled = uiConfig.isBlurEnabled && uiConfig.isGlassHighlightEnabled,

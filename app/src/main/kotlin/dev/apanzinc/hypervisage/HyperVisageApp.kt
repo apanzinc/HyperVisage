@@ -5,6 +5,7 @@ package dev.apanzinc.hypervisage
 
 import android.app.Application
 import androidx.appcompat.app.AppCompatDelegate
+import dev.apanzinc.hypervisage.debug.CrashRecorder
 import dev.apanzinc.hypervisage.di.appModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -15,6 +16,7 @@ class HyperVisageApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        CrashRecorder.install(this)
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
 
         startKoin {
