@@ -19,6 +19,7 @@
   | `ui/theme/HyperXTheme.kt` | 适配 miuix 0.9.4 移除的 `smoothRounding` |
   | `ui/theme/HyperXShapes.kt` | 新增：`hyperxShape` 替代 miuix 0.9.4 移除的 `miuixShape` |
   | `ui/component/AdaptiveIcon.kt`、`ui/component/Card.kt`、`ui/layout/TabRow.kt` | 改用 `hyperxShape` |
+  | `ui/layout/HyperXNavDisplay.kt`、`ui/layout/HyperXAppLayout.kt` | 新增 `HyperXNavDisplay`：照 fork 的 `NavDisplay(entries = ...)` 拆开一层，改用 `NavDisplay(sceneState, navigationEventState)` 重载并加 `predictiveBackEnabled`。关闭预测返回时给页面一个恒 Idle 的手势 state，返回不跟手但仍走普通 pop 动画 |
   | `ui/animation/HyperXNavTransitions.kt`、`ui/layout/HyperXAppLayout.kt` | 恢复 `NavDisplayTransitionEffects`（原项目的圆角裁剪 / 变暗 / 拦截输入 / 跟手返回方向，继续用 miuix fork 的 `NavDisplay`）；删除手写弹簧 `NavTransitionEasing`（阻尼=1 时判别式为 0 会算出 NaN，改临界阻尼后曲线又在 90ms 内走完 89% 位移，观感是「进入没动画、返回拖着不动」），改用标准 `FastOutSlowInEasing`；时长改为进入 350ms / 返回 250ms / 侧滑收尾 180ms；返回场景设置 `targetContentZIndex = -1f` 让滑出的二级页保持在上层；新增 `splitPopTransitionSpec` 修正分屏返回方向 |
 
   版权与原许可声明保留于原作者。依据 Apache-2.0 第 4 条，此处明确标注文件已被修改。

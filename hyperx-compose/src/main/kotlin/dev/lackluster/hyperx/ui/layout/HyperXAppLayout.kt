@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.ui.NavDisplay
 import dev.lackluster.hyperx.R
 import dev.lackluster.hyperx.navigation.HyperXRoute
 import dev.lackluster.hyperx.navigation.LocalNavigator
@@ -54,6 +53,7 @@ import top.yukonga.miuix.kmp.utils.MiuixPopupUtils
 @Composable
 fun HyperXAppLayout(
     config: HyperXLayoutConfig = HyperXLayoutConfig(),
+    predictiveBackEnabled: Boolean = false,
     customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)? = null,
     emptyContent: @Composable () -> Unit = { DefaultEmptyPage() },
     primaryContent: @Composable () -> Unit
@@ -94,6 +94,7 @@ fun HyperXAppLayout(
                         UnifiedSplitLayout(
                             backStack = backStack,
                             rightWeight = rightWeight,
+                            predictiveBackEnabled = predictiveBackEnabled,
                             primaryContent = primaryContent,
                             emptyContent = emptyContent,
                             customEntryProvider = customEntryProvider
@@ -108,6 +109,7 @@ fun HyperXAppLayout(
                         UnifiedNormalLayout(
                             backStack = backStack,
                             extraPadding = extraPadding,
+                            predictiveBackEnabled = predictiveBackEnabled,
                             primaryContent = primaryContent,
                             customEntryProvider = customEntryProvider
                         )
@@ -123,6 +125,7 @@ fun HyperXAppLayout(
 private fun UnifiedNormalLayout(
     backStack: MutableList<NavKey>,
     extraPadding: PaddingValues,
+    predictiveBackEnabled: Boolean,
     primaryContent: @Composable () -> Unit,
     customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)?
 ) {
@@ -141,9 +144,10 @@ private fun UnifiedNormalLayout(
         LocalPageMode provides PageLayoutMode.FULL_SCREEN,
         LocalLayoutPadding provides contentPadding
     ) {
-        NavDisplay(
+        HyperXNavDisplay(
             backStack = backStack,
             onBack = { if (backStack.size > 1) backStack.removeLastOrNull() },
+            predictiveBackEnabled = predictiveBackEnabled,
             transitionSpec = HyperXNavTransitions.normalTransitionSpec(layoutDirection),
             popTransitionSpec = HyperXNavTransitions.normalPopTransitionSpec(layoutDirection),
             predictivePopTransitionSpec = HyperXNavTransitions.normalPredictivePopTransitionSpec(layoutDirection),
@@ -163,6 +167,7 @@ private fun UnifiedNormalLayout(
 private fun UnifiedSplitLayout(
     backStack: MutableList<NavKey>,
     rightWeight: Float,
+    predictiveBackEnabled: Boolean,
     primaryContent: @Composable () -> Unit,
     emptyContent: @Composable () -> Unit,
     customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)?
@@ -205,10 +210,11 @@ private fun UnifiedSplitLayout(
             LocalPageMode provides PageLayoutMode.SPLIT_SECONDARY,
             LocalLayoutPadding provides secondaryPadding
         ) {
-            NavDisplay(
+            HyperXNavDisplay(
                 backStack = backStack,
                 modifier = Modifier.weight(rightWeight),
                 onBack = { if (backStack.size > 1) backStack.removeLastOrNull() },
+                predictiveBackEnabled = predictiveBackEnabled,
                 transitionSpec = HyperXNavTransitions.splitTransitionSpec(layoutDirection),
                 popTransitionSpec = HyperXNavTransitions.splitPopTransitionSpec(layoutDirection),
                 predictivePopTransitionSpec = HyperXNavTransitions.splitPredictivePopTransitionSpec(layoutDirection),

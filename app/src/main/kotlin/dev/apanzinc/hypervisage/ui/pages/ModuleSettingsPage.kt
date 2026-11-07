@@ -19,6 +19,8 @@ fun ModuleSettingsPage() {
     val enabledSummary = stringResource(R.string.module_enabled_summary)
     val debugTitle = stringResource(R.string.module_debug_title)
     val debugSummary = stringResource(R.string.module_debug_summary)
+    val predictiveBackTitle = stringResource(R.string.module_predictive_back_title)
+    val predictiveBackSummary = stringResource(R.string.module_predictive_back_summary)
 
     HyperXPage(title = title) {
         itemPreferenceGroup(position = ItemPosition.Single) {
@@ -31,6 +33,11 @@ fun ModuleSettingsPage() {
                 key = Preferences.Module.DEBUG,
                 title = debugTitle,
                 summary = debugSummary,
+            )
+            SwitchPreference(
+                key = Preferences.App.PREDICTIVE_BACK,
+                title = predictiveBackTitle,
+                summary = predictiveBackSummary,
             )
         }
     }

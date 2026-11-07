@@ -19,6 +19,11 @@ object Preferences {
         val DEBUG = PreferenceKey("module_debug", false)
     }
 
+    /** 只影响本 App 界面，存本地，不进 remote preferences。 */
+    object App {
+        val PREDICTIVE_BACK = PreferenceKey("predictive_back", false)
+    }
+
     object Example {
         val ENABLED = PreferenceKey("example_enabled", false)
         val SHOW_TOAST = PreferenceKey("example_show_toast", false)

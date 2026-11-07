@@ -5,6 +5,8 @@ package dev.apanzinc.hypervisage.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavEntry
@@ -15,6 +17,7 @@ import dev.apanzinc.hypervisage.ui.pages.ExamplePage
 import dev.apanzinc.hypervisage.ui.pages.HomePage
 import dev.apanzinc.hypervisage.ui.pages.ModuleSettingsPage
 import dev.apanzinc.hypervisage.ui.preference.AppPreferenceActions
+import dev.apanzinc.hypervisage.ui.preference.AppSettings
 import dev.lackluster.hyperx.core.HyperXActivity
 import dev.lackluster.hyperx.ui.layout.HyperXAppLayout
 import dev.lackluster.hyperx.ui.layout.HyperXLayoutConfig
@@ -47,6 +50,8 @@ class MainActivity : HyperXActivity() {
     @Composable
     private fun MainContent() {
         val preferenceActions: AppPreferenceActions = koinInject()
+        val appSettings: AppSettings = koinInject()
+        val predictiveBack by appSettings.predictiveBack.collectAsState()
 
         // 以后可以接上"是否分屏""模糊强度"这类模块自己的外观设置
         val layoutConfig = HyperXLayoutConfig(
@@ -59,6 +64,7 @@ class MainActivity : HyperXActivity() {
         CompositionLocalProvider(LocalPreferenceActions provides preferenceActions) {
             HyperXAppLayout(
                 config = layoutConfig,
+                predictiveBackEnabled = predictiveBack,
                 primaryContent = { HomePage() },
                 customEntryProvider = { key ->
                     NavEntry(key) {

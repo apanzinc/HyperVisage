@@ -49,6 +49,13 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 3. `hook/rules/` 加一个 Rule，`onInit` 里 `observe` 那个 key
 4. 在对应 scope 的 `onReady()` 里 `attach` 这个 Rule
 
+## 界面设置
+
+- 模块设置页的「预测返回」默认关闭。开启后侧滑返回跟手，关闭后不跟手、松手直接走普通返回动画。
+- 该开关只影响本 App 界面，存本地 SharedPreferences（`AppSettings`），不依赖 LSPosed 服务是否连上。
+- fork 的 `NavDisplay(backStack = ...)` 内部会无条件注册 `NavigationBackHandler`，外部没法关掉跟手效果。`HyperXNavDisplay` 照它的 `NavDisplay(entries = ...)` 重载拆开一层，改用 `NavDisplay(sceneState, navigationEventState)` 重载：系统返回手势始终由应用消费，但关闭时交给页面的是另一个永远停在 Idle 的手势 state。
+- 主界面底部叠加 miuix 0.9.4 的 `FloatingNavigationBar`，三个入口分别是主页、设置、关于；列表末尾留了 112dp，让最后一项能滚出遮挡。
+
 ## 柔光玻璃
 
 组件库原版停在 2026 年 6 月，依赖 miuix 0.9.0，早于 HyperOS 4 的柔光玻璃设计语言，因此本项目把它升到了 miuix 0.9.4。
