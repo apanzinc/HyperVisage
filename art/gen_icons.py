@@ -24,6 +24,10 @@ RES = os.path.join(HERE, '..', 'app', 'src', 'main', 'res', 'drawable')
 SRC_CANVAS = 650.0
 # 目标画布边长（自适应图标前景/背景层固定 108dp）
 DST_CANVAS = 108.0
+# 系统实际只显示 108dp 画布的中心 72dp，比例必须按这个算，不是 108
+VISIBLE_CANVAS = 72.0
+# 图案宽度占「可视区」的比例。0.66 对应图案宽 47.5dp，视觉上不会顶满
+PATTERN_WIDTH_RATIO = 0.66
 
 
 def parse_paths(svg):
@@ -78,15 +82,18 @@ def main():
     minx, miny, maxx, maxy = bbox_of(d_main)
     w, h = maxx - minx, maxy - miny
     cx = (minx + maxx) / 2
+    cy = (miny + maxy) / 2
 
-    s = DST_CANVAS / SRC_CANVAS
-    tx = ty = 0.0
+    # 直接把图案宽度缩到目标值，再挪到画布中心，不依赖源画布尺寸
+    target_w = VISIBLE_CANVAS * PATTERN_WIDTH_RATIO
+    s = target_w / w
+    tx = DST_CANVAS / 2 - cx * s
+    ty = DST_CANVAS / 2 - cy * s
 
     print(f'图案 bbox {w:.2f} x {h:.2f}（含曲线控制点，实际可见范围略小）')
-    print(f'映射后占 {w * s:.2f} x {h * s:.2f} dp（自适应图标安全区 66dp）')
-    # 控制点让框偏大 2% 左右，阈值相应放宽，避免误报
-    if w * s > DST_CANVAS * 0.70:
-        print('  警告：明显超出安全区，边缘可能被系统遮罩裁掉')
+    print(f'缩放后 {w * s:.2f} x {h * s:.2f} dp')
+    print(f'占可视区 {VISIBLE_CANVAS:.0f}dp 的 {w * s / VISIBLE_CANVAS * 100:.0f}%，'
+          f'占整张 108dp 画布的 {w * s / DST_CANVAS * 100:.0f}%')
 
     header = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
