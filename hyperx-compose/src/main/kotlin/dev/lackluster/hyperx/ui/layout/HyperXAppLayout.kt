@@ -209,7 +209,7 @@ private fun UnifiedSplitLayout(
                 modifier = Modifier.weight(rightWeight),
                 onBack = { if (backStack.size > 1) backStack.removeLastOrNull() },
                 transitionSpec = HyperXNavTransitions.splitTransitionSpec(layoutDirection),
-                popTransitionSpec = HyperXNavTransitions.splitTransitionSpec(layoutDirection),
+                popTransitionSpec = HyperXNavTransitions.splitPopTransitionSpec(layoutDirection),
                 predictivePopTransitionSpec = HyperXNavTransitions.splitPredictivePopTransitionSpec(layoutDirection),
                 entryProvider = { key ->
                     when (key) {

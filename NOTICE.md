@@ -19,7 +19,7 @@
   | `ui/theme/HyperXTheme.kt` | 适配 miuix 0.9.4 移除的 `smoothRounding` |
   | `ui/theme/HyperXShapes.kt` | 新增：`hyperxShape` 替代 miuix 0.9.4 移除的 `miuixShape` |
   | `ui/component/AdaptiveIcon.kt`、`ui/component/Card.kt`、`ui/layout/TabRow.kt` | 改用 `hyperxShape` |
-  | `ui/animation/HyperXNavTransitions.kt`、`ui/layout/HyperXAppLayout.kt` | 移除 `NavDisplayTransitionEffects`（该 API 来自 miuix 的 navigation3 fork，0.9.4 起不再发布）；转场时长 500/550ms → 300/350ms；修正 `NavTransitionEasing` 在阻尼=1 时判别式为 0、`c2 = r/w = -Inf` 导致 transform() 返回 NaN 的问题，改用临界阻尼分支并加有限值兜底 |
+  | `ui/animation/HyperXNavTransitions.kt`、`ui/layout/HyperXAppLayout.kt` | 移除 `NavDisplayTransitionEffects`（该 API 来自 miuix 的 navigation3 fork，0.9.4 起不再发布）；删除手写弹簧 `NavTransitionEasing`（阻尼=1 时判别式为 0 会算出 NaN，改临界阻尼后曲线又在 90ms 内走完 89% 位移，观感是「进入没动画、返回拖着不动」），改用标准 `FastOutSlowInEasing`；时长改为进入 350ms / 返回 250ms / 侧滑收尾 180ms；返回场景设置 `targetContentZIndex = -1f` 让滑出的二级页保持在上层；新增 `splitPopTransitionSpec` 修正分屏返回方向 |
 
   版权与原许可声明保留于原作者。依据 Apache-2.0 第 4 条，此处明确标注文件已被修改。
 
