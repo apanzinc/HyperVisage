@@ -31,6 +31,7 @@
 - 来源：https://github.com/miuix-kotlin-multiplatform/miuix
 - 许可：Apache License 2.0
 - 说明：通过 Maven 依赖引入，未修改。提供基础组件、主题与 blur / highlight 管线。
+- 另：主界面底栏 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/HyperVisageBottomBar.kt` 的结构与尺寸参照了该仓库 main 分支尚未发布的 `miuix-glass` 模块中的 `GlassNavigationBar` / `GlassNavigationBarLayout`。未复制其源码，也未引入该模块；实现只用 0.9.4 的公开主题颜色与 Compose 基础绘制 API。
 
 ## androidx.navigation3
 

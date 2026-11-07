@@ -55,7 +55,7 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 - 该开关只影响本 App 界面，存本地 SharedPreferences（`AppSettings`），不依赖 LSPosed 服务是否连上。
 - fork 的 `NavDisplay(backStack = ...)` 内部会无条件注册 `NavigationBackHandler`，外部没法关掉跟手效果。`HyperXNavDisplay` 照它的 `NavDisplay(entries = ...)` 重载拆开一层，改用 `NavDisplay(sceneState, navigationEventState)` 重载：系统返回手势始终由应用消费，但关闭时交给页面的是另一个永远停在 Idle 的手势 state。
 - 模块设置页的「界面模糊」默认开启，走本地存储。关掉后完全不创建 `LayerBackdrop`、不跑 RuntimeShader，可用来直接判断转场掉帧是不是模糊造成的。
-- 主界面底部叠加 miuix 0.9.4 的 `FloatingNavigationBar`，三个入口分别是主页、设置、关于；列表末尾留了 112dp，让最后一项能滚出遮挡。
+- 主界面底部是分离式悬浮底栏（`app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/HyperVisageBottomBar.kt`）：一个胶囊放主页 / 设置，右侧一个独立圆按钮放关于，选中项后面有一块会滑动的椭圆高亮。结构和尺寸参照 miuix 上游 main 分支尚未发布的 `miuix-glass/GlassNavigationBar`，但实现只用 0.9.4 已有的主题色和 Compose 基础绘制，不引入 backdrop / RuntimeShader，不会给转场再加一遍玻璃合成。列表末尾留了 112dp，让最后一项能滚出遮挡。
 
 ## 转场性能
 

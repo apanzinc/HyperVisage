@@ -6,22 +6,26 @@ package dev.apanzinc.hypervisage.ui.pages
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.apanzinc.hypervisage.R
 import dev.apanzinc.hypervisage.data.Route
+import dev.apanzinc.hypervisage.ui.component.HyperVisageBottomBar
+import dev.apanzinc.hypervisage.ui.component.HyperVisageBottomBarItem
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.layout.HyperXPage
 import dev.lackluster.hyperx.ui.preference.ItemPosition
 import dev.lackluster.hyperx.ui.preference.TextPreference
 import dev.lackluster.hyperx.ui.preference.itemPreferenceGroup
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Info
@@ -33,6 +37,12 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 @Composable
 fun HomePage() {
     val navigator = LocalNavigator.current
+    var selectedTab by remember { mutableIntStateOf(0) }
+    // 二级页面是覆盖在 HomePage 之上的，返回后底栏要回到「主页」这一项
+    val stackSize = navigator.backStack.size
+    LaunchedEffect(stackSize) {
+        if (stackSize <= 1) selectedTab = 0
+    }
 
     // HyperXPage 的 content 是 LazyListScope，不是 @Composable 上下文，
     // 所以字符串要在这里先取好。
@@ -93,31 +103,20 @@ fun HomePage() {
             item { Spacer(modifier = Modifier.height(112.dp)) }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth(),
-        ) {
-            FloatingNavigationBar {
-                FloatingNavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = MiuixIcons.Home,
-                    label = navHome,
-                )
-                FloatingNavigationBarItem(
-                    selected = false,
-                    onClick = { navigator.push(Route.ModuleSettings) },
-                    icon = MiuixIcons.Settings,
-                    label = navSettings,
-                )
-                FloatingNavigationBarItem(
-                    selected = false,
-                    onClick = { navigator.push(Route.About) },
-                    icon = MiuixIcons.Info,
-                    label = navAbout,
-                )
-            }
-        }
+        HyperVisageBottomBar(
+            items = listOf(
+                HyperVisageBottomBarItem(MiuixIcons.Home, navHome),
+                HyperVisageBottomBarItem(MiuixIcons.Settings, navSettings),
+            ),
+            selectedIndex = selectedTab,
+            onSelect = { index ->
+                selectedTab = index
+                if (index == 1) navigator.push(Route.ModuleSettings)
+            },
+            actionIcon = MiuixIcons.Info,
+            actionContentDescription = navAbout,
+            onActionClick = { navigator.push(Route.About) },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
