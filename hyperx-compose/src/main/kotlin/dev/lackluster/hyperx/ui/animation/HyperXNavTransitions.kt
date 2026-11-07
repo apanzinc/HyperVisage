@@ -67,7 +67,13 @@ class NavTransitionEasing(
 }
 
 object HyperXNavTransitions {
-    private val NavAnimationEasing = NavTransitionEasing(0.8f, 0.95f)
+    /** 页面进出时长，对齐 HyperOS 的转场节奏；原来 500ms 明显拖沓。 */
+    private const val TransitionDuration = 300
+    /** 侧滑返回的收尾动画，跟手之后快速落位即可。 */
+    private const val PredictivePopDuration = 350
+
+    /** 阻尼振荡曲线，response 调小后不再有长尾巴。 */
+    private val NavAnimationEasing = NavTransitionEasing(0.5f, 1.0f)
 
     // 注：miuix 曾用一个 navigation3 fork 提供 NavDisplayTransitionEffects（页面切换时的
     // 圆角裁剪、背后场景变暗、切换期间拦截触摸）。该 fork 在 0.9.4 下线，官方
@@ -79,11 +85,11 @@ object HyperXNavTransitions {
         ContentTransform(
             slideInHorizontally(
                 initialOffsetX = { it * slideDirectionSign },
-                animationSpec = tween(durationMillis = 500, easing = NavAnimationEasing),
+                animationSpec = tween(durationMillis = TransitionDuration, easing = NavAnimationEasing),
             ),
             slideOutHorizontally(
                 targetOffsetX = { -it / 4 * slideDirectionSign },
-                animationSpec = tween(durationMillis = 500, easing = NavAnimationEasing),
+                animationSpec = tween(durationMillis = TransitionDuration, easing = NavAnimationEasing),
             ),
         )
     }
@@ -94,11 +100,11 @@ object HyperXNavTransitions {
         ContentTransform(
             slideInHorizontally(
                 initialOffsetX = { -it / 4 * slideDirectionSign },
-                animationSpec = tween(durationMillis = 500, easing = NavAnimationEasing),
+                animationSpec = tween(durationMillis = TransitionDuration, easing = NavAnimationEasing),
             ),
             slideOutHorizontally(
                 targetOffsetX = { it * slideDirectionSign },
-                animationSpec = tween(durationMillis = 500, easing = NavAnimationEasing),
+                animationSpec = tween(durationMillis = TransitionDuration, easing = NavAnimationEasing),
             ),
         )
     }
@@ -109,11 +115,11 @@ object HyperXNavTransitions {
         ContentTransform(
             slideInHorizontally(
                 initialOffsetX = { -it / 4 * slideDirectionSign },
-                animationSpec = tween(durationMillis = 550, easing = LinearEasing),
+                animationSpec = tween(durationMillis = PredictivePopDuration, easing = LinearEasing),
             ),
             slideOutHorizontally(
                 targetOffsetX = { it * slideDirectionSign },
-                animationSpec = tween(durationMillis = 550, easing = LinearEasing),
+                animationSpec = tween(durationMillis = PredictivePopDuration, easing = LinearEasing),
             ),
         )
     }
@@ -124,11 +130,11 @@ object HyperXNavTransitions {
         ContentTransform(
             slideInHorizontally(
                 initialOffsetX = { it * slideDirectionSign },
-                animationSpec = tween(durationMillis = 500, easing = NavAnimationEasing),
+                animationSpec = tween(durationMillis = TransitionDuration, easing = NavAnimationEasing),
             ),
             slideOutHorizontally(
                 targetOffsetX = { it * slideDirectionSign },
-                animationSpec = tween(durationMillis = 500, easing = NavAnimationEasing),
+                animationSpec = tween(durationMillis = TransitionDuration, easing = NavAnimationEasing),
             )
         )
     }
@@ -139,11 +145,11 @@ object HyperXNavTransitions {
         ContentTransform(
             slideInHorizontally(
                 initialOffsetX = { it * slideDirectionSign },
-                animationSpec = tween(durationMillis = 550, easing = LinearEasing),
+                animationSpec = tween(durationMillis = PredictivePopDuration, easing = LinearEasing),
             ),
             slideOutHorizontally(
                 targetOffsetX = { it * slideDirectionSign },
-                animationSpec = tween(durationMillis = 550, easing = LinearEasing),
+                animationSpec = tween(durationMillis = PredictivePopDuration, easing = LinearEasing),
             ),
         )
     }

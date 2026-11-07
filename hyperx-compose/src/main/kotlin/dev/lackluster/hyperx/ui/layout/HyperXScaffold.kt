@@ -24,8 +24,9 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -42,7 +43,7 @@ fun HyperXScaffold(
     topBarBlurFractionProvider: () -> Float = { 1f },
     blurBottomBar: Boolean = false,
     bottomBarBlurFractionProvider: () -> Float = { 1f },
-    blurTintAlpha: Float = 0.8f,
+    blurTintAlpha: Float = 0.32f,
     layoutPadding: PaddingValues = PaddingValues(0.dp),
     content: @Composable (PaddingValues) -> Unit
 ) {
@@ -146,17 +147,21 @@ private fun DynamicBlurBox(
     )
 
     Box(
-        modifier = Modifier.textureBlur(
+        modifier = Modifier.progressiveTextureBlur(
             backdrop = backdrop,
             shape = RectangleShape,
             blurRadius = blurRadius,
+            // 顶部最强、向下线性渐清晰，也就是「从下到上逐渐模糊」
+            gradient = ProgressiveBlur.Top,
             colors = blurColors,
             highlight = highlight,
         ).drawBehind {
-            val fraction = fractionProvider()
-            val overlayAlpha = (1f - fraction).coerceIn(0f, 1f)
-            if (overlayAlpha > 0f) {
-                drawRect(color = containerColor.copy(alpha = overlayAlpha))
+            // 只补一点底色保证标题对比度，绝不能用纯色把渐进模糊盖住。
+            // 展开态 fraction=0 完全透明，折叠后才逐渐加深。
+            val fraction = fractionProvider().coerceIn(0f, 1f)
+            val tint = fraction * 0.18f
+            if (tint > 0f) {
+                drawRect(color = containerColor.copy(alpha = tint))
             }
         }
     ) {

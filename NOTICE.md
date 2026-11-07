@@ -13,13 +13,13 @@
   |---|---|
   | `build.gradle.kts` | miuix 依赖 0.9.0 → 0.9.4；移除已停更的 `miuix-navigation3-ui`，改用官方 `androidx.navigation3:navigation3-ui` |
   | `ui/effect/GlassEffect.kt` | 新增：柔光玻璃边缘高光 + 随设备倾斜的光源 |
-  | `ui/layout/HyperXScaffold.kt` | 顶栏/底栏模糊层接入高光 |
-  | `ui/layout/LayoutLocals.kt` | 新增 `isGlassHighlightEnabled` 开关 |
+  | `ui/layout/HyperXScaffold.kt` | 顶栏/底栏接入高光；模糊改为 `progressiveTextureBlur` 线性渐变（顶部最强向下渐清晰），移除盖住模糊的纯色层 |
+  | `ui/layout/LayoutLocals.kt` | 新增 `isGlassHighlightEnabled`；玻璃底色默认值 0.8/0.7 → 0.32/0.28 |
   | `ui/effect/BlurEffect.kt` | 适配 miuix 0.9.4 移除的 `isRenderEffectSupported` |
   | `ui/theme/HyperXTheme.kt` | 适配 miuix 0.9.4 移除的 `smoothRounding` |
   | `ui/theme/HyperXShapes.kt` | 新增：`hyperxShape` 替代 miuix 0.9.4 移除的 `miuixShape` |
   | `ui/component/AdaptiveIcon.kt`、`ui/component/Card.kt`、`ui/layout/TabRow.kt` | 改用 `hyperxShape` |
-  | `ui/animation/HyperXNavTransitions.kt`、`ui/layout/HyperXAppLayout.kt` | 移除 `NavDisplayTransitionEffects`（该 API 来自 miuix 的 navigation3 fork，0.9.4 起不再发布） |
+  | `ui/animation/HyperXNavTransitions.kt`、`ui/layout/HyperXAppLayout.kt` | 移除 `NavDisplayTransitionEffects`（该 API 来自 miuix 的 navigation3 fork，0.9.4 起不再发布）；转场时长 500/550ms → 300/350ms |
 
   版权与原许可声明保留于原作者。依据 Apache-2.0 第 4 条，此处明确标注文件已被修改。
 

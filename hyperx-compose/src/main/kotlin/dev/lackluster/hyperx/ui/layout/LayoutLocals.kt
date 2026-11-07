@@ -9,8 +9,9 @@ data class HyperXLayoutConfig(
     val isBlurEnabled: Boolean = true,
     /** 柔光玻璃边缘高光（含随设备倾斜的光效）。isBlurEnabled 关闭时不生效。 */
     val isGlassHighlightEnabled: Boolean = true,
-    val lightBlurAlpha: Float = 0.8f,
-    val darkBlurAlpha: Float = 0.7f,
+    /** 玻璃底色浓度。渐进模糊要能透出后面的内容，别调太高，0.8 会糊成一块纯色。 */
+    val lightBlurAlpha: Float = 0.32f,
+    val darkBlurAlpha: Float = 0.28f,
 )
 
 enum class PageLayoutMode {

@@ -54,8 +54,9 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 组件库原版停在 2026 年 6 月，依赖 miuix 0.9.0，早于 HyperOS 4 的柔光玻璃设计语言，因此本项目把它升到了 miuix 0.9.4。
 
 - `hyperx-compose/ui/effect/GlassEffect.kt`：`BloomStroke` 边缘光晕 + `rememberTiltLight` 随设备倾斜移动的主光源，深浅主题分别取预设
-- `hyperx-compose/ui/layout/HyperXScaffold.kt`：顶栏 / 底栏的模糊层接上高光
-- `HyperXLayoutConfig.isGlassHighlightEnabled`：总开关，默认开
+- `hyperx-compose/ui/layout/HyperXScaffold.kt`：顶栏 / 底栏的模糊层接上高光，并改用 `progressiveTextureBlur` + `ProgressiveBlur.Top` 做线性渐变模糊（顶部最强、向下渐清晰，也就是从下到上逐渐模糊）
+- `HyperXLayoutConfig.isGlassHighlightEnabled`：高光总开关，默认开
+- `HyperXLayoutConfig.lightBlurAlpha / darkBlurAlpha`：玻璃底色浓度，默认 0.32 / 0.28；调太高会糊成一块纯色，把渐变遮住
 
 系统级的柔光玻璃由小米自己渲染，第三方应用拿不到，这里是用 RuntimeShader 模拟，效果接近而非逐像素一致。`minSdk 35` 保证 `isRuntimeShaderSupported()` 恒为 true。
 
