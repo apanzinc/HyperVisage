@@ -136,9 +136,9 @@ private fun BottomBarHost(
     val navSearch = stringResource(R.string.home_nav_search)
 
     val items = listOf(
-        HyperVisageBottomBarItem(NavIcons.HomeLine, NavIcons.HomeFill, navHome),
-        HyperVisageBottomBarItem(NavIcons.SettingsLine, NavIcons.SettingsFill, navSettings),
-        HyperVisageBottomBarItem(NavIcons.AboutLine, NavIcons.AboutFill, navAbout),
+        HyperVisageBottomBarItem(NavIcons.HomeLine, NavIcons.HomeActive, navHome),
+        HyperVisageBottomBarItem(NavIcons.SettingsLine, NavIcons.SettingsActive, navSettings),
+        HyperVisageBottomBarItem(NavIcons.AboutLine, NavIcons.AboutActive, navAbout),
     )
 
     if (standardBottomBar) {

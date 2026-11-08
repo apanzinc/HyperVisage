@@ -86,7 +86,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.process)
-    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.koin.androidx.compose)
     implementation(libs.kotlinx.serialization.json)
 

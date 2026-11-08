@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -219,12 +220,31 @@ private fun NavigationCapsule(
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = if (position == index) item.selectedIcon else item.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(IconSize),
-                            tint = contentColor,
-                        )
+                        // 线性 / 面性两套图标按 Pager 进度交叉淡入，读值和算位置都在
+                        // graphicsLayer 的延迟 lambda 里，滑动时不会触发重组，
+                        // 手指拖到哪图标就渐变到哪，和高光严格同步。
+                        Box(modifier = Modifier.size(IconSize)) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .graphicsLayer {
+                                        alpha = 1f - selectionWeight(progress.value, position)
+                                    },
+                                tint = contentColor,
+                            )
+                            Icon(
+                                imageVector = item.selectedIcon,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .graphicsLayer {
+                                        alpha = selectionWeight(progress.value, position)
+                                    },
+                                tint = contentColor,
+                            )
+                        }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = item.label,
@@ -269,3 +289,7 @@ private fun RoundAction(
         )
     }
 }
+
+/** 进度正好落在某一项上时权重为 1，滑到相邻页归 0，用于图标交叉淡入。 */
+private fun selectionWeight(progress: Float, position: Int): Float =
+    (1f - kotlin.math.abs(progress - position.toFloat())).coerceIn(0f, 1f)
