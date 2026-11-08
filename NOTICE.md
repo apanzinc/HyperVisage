@@ -58,7 +58,7 @@
 
 - 位置：`app/src/main/res/drawable/nav_*.xml`
 - 来源：按用户提供的参考截图中分离式底栏的造型重绘，非小米官方图标资源、非 Material Icons
-- 说明：四个图标统一 24dp viewport / 2dp 线宽，各有线性与面性两版，选中面性、未选中线性，随 Pager 进度交叉淡入。见 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/NavIcons.kt`。
+- 说明：四个图标统一 24dp viewport，各有线性与面性两版；当前只用面性那一套（含 `nav_search_fill.xml`），选中与未选中不换图标，线性的四个保留备用。见 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/NavIcons.kt`。
 - 先前用过的 AndroidX Material Icons（Apache-2.0）与 miuix-icons 的小米 misymbol 图标均已不再用于底栏：前者造型不符参考，后者只有五档字重、没有实心版，混用会造成粗细与线面不统一。应用图标仍来自 MingCute，与底栏图标不混用。
 
 ## libxposed API / service

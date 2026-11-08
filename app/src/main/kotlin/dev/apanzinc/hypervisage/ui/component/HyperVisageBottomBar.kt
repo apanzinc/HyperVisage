@@ -3,10 +3,13 @@
 
 package dev.apanzinc.hypervisage.ui.component
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,19 +32,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
@@ -55,9 +63,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * HyperOS 4 风格的固定贴底分离式底栏：一个胶囊导航 + 一个独立圆形搜索按钮。
  * 胶囊里放三个并行标签页（主页 / 设置 / 关于），圆钮是打开搜索页的动作入口。
  *
- * 结构和尺寸参照 compose-miuix-ui/miuix main 分支的 `GlassNavigationBar`
- * （GlassNavigationBarDefaults / GlassNavigationBarLayout），但只用 0.9.4 已有的
- * 纯绘制 API 复刻，不引入 backdrop 与 RuntimeShader，避免页面转场时再跑一遍玻璃合成。
+ * 结构和尺寸参照 compose-miuix-ui/miuix main 分支的 `GlassNavigationBar`，
+ * 但只用 0.9.4 已有的纯绘制 API 复刻，不引入 backdrop 与 RuntimeShader。
+ * 容器不画描边，靠底色和选中高光分层。
  */
 private val BarHeight = 56.dp
 private val CapsuleWidth = 208.dp
@@ -68,17 +76,20 @@ private val ActionSpacing = 12.dp
 private val IconSize = 26.dp
 private val ActionIconSize = 26.dp
 private val LabelSize = 11.sp
-private val StrokeWidth = 0.75.dp
 private val IndicatorInsetVertical = 3.dp
 private val IndicatorInsetHorizontal = 8.dp
 private val IndicatorOverhang = 5.dp
 
+/** 按下时图标和文字的灰度，按压反馈不做 ripple。 */
+private const val PressedAlpha = 0.42f
+/** 选择器按下时高度压缩、宽度外扩的比例。 */
+private const val SquishHeight = 0.22f
+private const val SquishWidth = 0.10f
+
 @Immutable
 data class HyperVisageBottomBarItem(
-    /** 未选中：线性图标 */
+    /** 选中与未选中都用同一个面性图标，不做线性 / 面性切换 */
     val icon: ImageVector,
-    /** 选中：面性图标 */
-    val selectedIcon: ImageVector,
     val label: String,
 )
 
@@ -86,9 +97,13 @@ data class HyperVisageBottomBarItem(
 fun HyperVisageBottomBar(
     items: List<HyperVisageBottomBarItem>,
     selectedIndex: Int,
-    /** Pager 的连续进度（currentPage + offsetFraction），高光在 draw 阶段直接读，和页面严格同步 */
+    /** Pager 的连续进度（currentPage + offsetFraction），高光在 draw 阶段直接读 */
     selectedProgress: State<Float>,
     onSelect: (Int) -> Unit,
+    /** 手指在胶囊上横滑，按「页」为单位喂给 Pager，页面和高光同一份进度 */
+    onDragPageDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragActiveChange: (Boolean) -> Unit,
     actionIcon: ImageVector,
     actionContentDescription: String,
     onActionClick: () -> Unit,
@@ -100,9 +115,7 @@ fun HyperVisageBottomBar(
     val colors = MiuixTheme.colorScheme
     val isDark = colors.background.luminance() < 0.5f
     val containerColor = colors.surfaceContainer
-    val strokeColor = colors.dividerLine
     val contentColor = colors.onBackground
-    // 与上游 GlassNavigationBarDefaults.indicatorColor() 一致
     val indicatorColor = if (isDark) {
         Color.White.copy(alpha = 0.12f)
     } else {
@@ -115,8 +128,7 @@ fun HyperVisageBottomBar(
         .asPaddingValues()
         .calculateBottomPadding()
 
-    // 底栏是固定贴底的一块，不是浮在页面上的浮层：给不透明底色，
-    // 只留系统导航栏 inset 和很小的上下呼吸，不再留 32dp 悬浮留白。
+    // 底栏是固定贴底的一块，不是浮在页面上的浮层
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -134,8 +146,10 @@ fun HyperVisageBottomBar(
                 index = index,
                 progress = selectedProgress,
                 onSelect = onSelect,
+                onDragPageDelta = onDragPageDelta,
+                onDragEnd = onDragEnd,
+                onDragActiveChange = onDragActiveChange,
                 containerColor = containerColor,
-                strokeColor = strokeColor,
                 contentColor = contentColor,
                 indicatorColor = indicatorColor,
                 shape = capsuleShape,
@@ -144,7 +158,6 @@ fun HyperVisageBottomBar(
                 icon = actionIcon,
                 contentDescription = actionContentDescription,
                 containerColor = containerColor,
-                strokeColor = strokeColor,
                 contentColor = contentColor,
                 onClick = onActionClick,
             )
@@ -159,8 +172,10 @@ private fun NavigationCapsule(
     index: Int,
     progress: State<Float>,
     onSelect: (Int) -> Unit,
+    onDragPageDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragActiveChange: (Boolean) -> Unit,
     containerColor: Color,
-    strokeColor: Color,
     contentColor: Color,
     indicatorColor: Color,
     shape: RoundedCornerShape,
@@ -169,32 +184,78 @@ private fun NavigationCapsule(
     val overhangPx = with(density) { IndicatorOverhang.toPx() }
     val insetPx = with(density) { IndicatorInsetVertical.toPx() }
     val contentInsetPx = with(density) { IndicatorInsetHorizontal.toPx() }
+    val slotPx = with(density) { (width - IndicatorInsetHorizontal * 2).toPx() / items.size }
+
+    val interactionSources = remember(items.size) {
+        List(items.size) { MutableInteractionSource() }
+    }
+    val pressedStates = remember(items.size) {
+        List(items.size) { mutableStateOf(false) }
+    }
+    LaunchedEffect(interactionSources) {
+        interactionSources.forEachIndexed { position, source ->
+            launch {
+                source.interactions.collect { interaction ->
+                    pressedStates[position].value = when (interaction) {
+                        is PressInteraction.Press -> true
+                        is PressInteraction.Release, is PressInteraction.Cancel -> false
+                        else -> pressedStates[position].value
+                    }
+                }
+            }
+        }
+    }
+    val anyPressed by remember(pressedStates) {
+        derivedStateOf { pressedStates.any { it.value } }
+    }
+    // 返回的是 State<Float>，在 draw 阶段读，不用解包到组合里
+    val squish = animateFloatAsState(
+        targetValue = if (anyPressed) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = 700f),
+        label = "indicatorSquish",
+    )
 
     Box(
         modifier = Modifier
             .width(width)
             .height(BarHeight)
             .background(containerColor, shape)
-            .border(StrokeWidth, strokeColor, shape)
-            .clip(shape),
+            .clip(shape)
+            .pointerInput(slotPx, onDragPageDelta, onDragEnd, onDragActiveChange) {
+                detectHorizontalDragGestures(
+                    onDragStart = { onDragActiveChange(true) },
+                    onDragEnd = {
+                        onDragActiveChange(false)
+                        onDragEnd()
+                    },
+                    onDragCancel = {
+                        onDragActiveChange(false)
+                        onDragEnd()
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        // 手指左滑是下一页；一个 slot 宽度对应一整页
+                        onDragPageDelta(-dragAmount / slotPx)
+                    },
+                )
+            },
     ) {
-        // 高光不再跑自己的弹簧：直接用 Pager 的连续进度算位置，
-        // 手指拖到哪高光就到哪，点击时 Pager 自己的弹簧动画也会 1:1 带过来。
-        // 只在 draw 阶段读 State.value，滑动时零重组。
+        // 高光直接用 Pager 的连续进度算位置，手指拖到哪高光到哪。
+        // 按压时压扁并轻微拉宽，松手由弹簧回弹。
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .drawBehind {
                     val slot = (size.width - contentInsetPx * 2f) / items.size
                     val p = progress.value.coerceIn(0f, items.lastIndex.toFloat())
-                    val l = contentInsetPx + p * slot - overhangPx
-                    val r = l + slot + overhangPx * 2f
-                    val h = size.height - insetPx * 2f
-                    if (r <= l || h <= 0f) return@drawBehind
+                    val s = squish.value
+                    val w = (slot + overhangPx * 2f) * (1f + SquishWidth * s)
+                    val h = (size.height - insetPx * 2f) * (1f - SquishHeight * s)
+                    if (w <= 0f || h <= 0f) return@drawBehind
+                    val centerX = contentInsetPx + (p + 0.5f) * slot
                     drawRoundRect(
                         color = indicatorColor,
-                        topLeft = Offset(l, insetPx),
-                        size = Size(r - l, h),
+                        topLeft = Offset(centerX - w / 2f, (size.height - h) / 2f),
+                        size = Size(w, h),
                         cornerRadius = CornerRadius(h / 2f),
                     )
                 }
@@ -208,6 +269,8 @@ private fun NavigationCapsule(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEachIndexed { position, item ->
+                val pressed by pressedStates[position]
+                val tint = if (pressed) contentColor.copy(alpha = PressedAlpha) else contentColor
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -216,41 +279,22 @@ private fun NavigationCapsule(
                             selected = position == index,
                             onClick = { onSelect(position) },
                             role = Role.Tab,
-                            interactionSource = remember { MutableInteractionSource() },
+                            interactionSource = interactionSources[position],
                             indication = null,
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        // 线性 / 面性两套图标按 Pager 进度交叉淡入，读值和算位置都在
-                        // graphicsLayer 的延迟 lambda 里，滑动时不会触发重组，
-                        // 手指拖到哪图标就渐变到哪，和高光严格同步。
-                        Box(modifier = Modifier.size(IconSize)) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .graphicsLayer {
-                                        alpha = 1f - selectionWeight(progress.value, position)
-                                    },
-                                tint = contentColor,
-                            )
-                            Icon(
-                                imageVector = item.selectedIcon,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .graphicsLayer {
-                                        alpha = selectionWeight(progress.value, position)
-                                    },
-                                tint = contentColor,
-                            )
-                        }
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(IconSize),
+                            tint = tint,
+                        )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = item.label,
-                            color = contentColor,
+                            color = tint,
                             fontSize = LabelSize,
                             maxLines = 1,
                         )
@@ -266,18 +310,19 @@ private fun RoundAction(
     icon: ImageVector,
     contentDescription: String,
     containerColor: Color,
-    strokeColor: Color,
     contentColor: Color,
     onClick: () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed = rememberPressed(interactionSource)
+    val tint = if (pressed.value) contentColor.copy(alpha = PressedAlpha) else contentColor
     Box(
         modifier = Modifier
             .size(ActionSize)
             .background(containerColor, CircleShape)
-            .border(StrokeWidth, strokeColor, CircleShape)
             .clip(CircleShape)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick,
             ),
@@ -287,11 +332,22 @@ private fun RoundAction(
             imageVector = icon,
             contentDescription = contentDescription,
             modifier = Modifier.size(ActionIconSize),
-            tint = contentColor,
+            tint = tint,
         )
     }
 }
 
-/** 进度正好落在某一项上时权重为 1，滑到相邻页归 0，用于图标交叉淡入。 */
-private fun selectionWeight(progress: Float, position: Int): Float =
-    (1f - kotlin.math.abs(progress - position.toFloat())).coerceIn(0f, 1f)
+@Composable
+private fun rememberPressed(interactionSource: MutableInteractionSource): State<Boolean> {
+    val pressed = remember { mutableStateOf(false) }
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interaction ->
+            pressed.value = when (interaction) {
+                is PressInteraction.Press -> true
+                is PressInteraction.Release, is PressInteraction.Cancel -> false
+                else -> pressed.value
+            }
+        }
+    }
+    return pressed
+}

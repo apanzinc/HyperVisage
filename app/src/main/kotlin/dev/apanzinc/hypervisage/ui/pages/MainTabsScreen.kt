@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import dev.apanzinc.hypervisage.ui.component.HyperVisageBottomBarItem
 import dev.apanzinc.hypervisage.ui.component.NavIcons
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.layout.LocalPageTransitionRunning
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.NavigationBar
@@ -41,7 +43,7 @@ const val TabAbout = 2
 
 private const val TabCount = 3
 
-/** 点击底栏时的横向滑动，稍软一点，和页面转场的弹簧节奏接近。 */
+/** 点击底栏或拖动松手时的横向滑动，稍软一点，和页面转场的弹簧节奏接近。 */
 private val TabSpring = spring<Float>(dampingRatio = 0.9f, stiffness = 320f)
 
 /**
@@ -62,12 +64,15 @@ fun MainTabsScreen(
     val scope = rememberCoroutineScope()
     val navigator = LocalNavigator.current
     val navTransition = LocalPageTransitionRunning.current
+    // 底栏拖动不走 Pager 自己的 scrollable，得单独告诉模糊层「正在转场」
+    val bottomBarDragging = remember { mutableStateOf(false) }
 
     // 横滑期间两个页面会同时存在，各自跑一遍渐进模糊就会掉帧。
-    // 复用导航层那套降级开关：合并「导航栈转场」和「Pager 滑动」两个来源，
-    // 期间只画静态底色，停下后恢复 shader。
+    // 复用导航层那套降级开关：合并「导航栈转场」「Pager 滑动」「底栏拖动」三个来源。
     val tabTransition: State<Boolean> = remember(navTransition, pagerState) {
-        derivedStateOf { navTransition.value || pagerState.isScrollInProgress }
+        derivedStateOf {
+            navTransition.value || pagerState.isScrollInProgress || bottomBarDragging.value
+        }
     }
 
     LaunchedEffect(tabRequests, pagerState) {
@@ -99,6 +104,7 @@ fun MainTabsScreen(
         BottomBarHost(
             pagerState = pagerState,
             standardBottomBar = standardBottomBar,
+            onDragActiveChange = { bottomBarDragging.value = it },
             onSelect = { index ->
                 scope.launch { pagerState.animateScrollToPage(index, animationSpec = TabSpring) }
             },
@@ -126,10 +132,12 @@ private fun TabBackHandler(pagerState: PagerState) {
 private fun BottomBarHost(
     pagerState: PagerState,
     standardBottomBar: Boolean,
+    onDragActiveChange: (Boolean) -> Unit,
     onSelect: (Int) -> Unit,
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
     val selectedIndex by remember(pagerState) { derivedStateOf { pagerState.currentPage } }
     val selectedProgress: State<Float> = remember(pagerState) {
         derivedStateOf { pagerState.currentPage + pagerState.currentPageOffsetFraction }
@@ -139,24 +147,22 @@ private fun BottomBarHost(
     val navAbout = stringResource(R.string.home_nav_about)
     val navSearch = stringResource(R.string.home_nav_search)
 
+    // 图标固定一套面性，选中与未选中不换图标
     val items = listOf(
         HyperVisageBottomBarItem(
-            icon = ImageVector.vectorResource(NavIcons.HomeLine),
-            selectedIcon = ImageVector.vectorResource(NavIcons.HomeActive),
+            icon = ImageVector.vectorResource(NavIcons.HomeFace),
             label = navHome,
         ),
         HyperVisageBottomBarItem(
-            icon = ImageVector.vectorResource(NavIcons.SettingsLine),
-            selectedIcon = ImageVector.vectorResource(NavIcons.SettingsActive),
+            icon = ImageVector.vectorResource(NavIcons.SettingsFace),
             label = navSettings,
         ),
         HyperVisageBottomBarItem(
-            icon = ImageVector.vectorResource(NavIcons.AboutLine),
-            selectedIcon = ImageVector.vectorResource(NavIcons.AboutActive),
+            icon = ImageVector.vectorResource(NavIcons.AboutFace),
             label = navAbout,
         ),
     )
-    val searchIcon = ImageVector.vectorResource(NavIcons.SearchLine)
+    val searchIcon = ImageVector.vectorResource(NavIcons.SearchFace)
 
     if (standardBottomBar) {
         // 组件库固定贴底的标准 NavigationBar，不是浮起来的 FloatingNavigationBar
@@ -165,7 +171,7 @@ private fun BottomBarHost(
                 NavigationBarItem(
                     selected = index == selectedIndex,
                     onClick = { onSelect(index) },
-                    icon = if (index == selectedIndex) item.selectedIcon else item.icon,
+                    icon = item.icon,
                     label = item.label,
                 )
             }
@@ -182,6 +188,18 @@ private fun BottomBarHost(
             selectedIndex = selectedIndex,
             selectedProgress = selectedProgress,
             onSelect = onSelect,
+            onDragPageDelta = { pageDelta ->
+                val pageSize = pagerState.layoutInfo.pageSize
+                if (pageSize > 0) {
+                    pagerState.dispatchRawDelta(pageDelta * pageSize)
+                }
+            },
+            onDragEnd = {
+                val target = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                    .roundToInt().coerceIn(0, TabCount - 1)
+                scope.launch { pagerState.animateScrollToPage(target, animationSpec = TabSpring) }
+            },
+            onDragActiveChange = onDragActiveChange,
             actionIcon = searchIcon,
             actionContentDescription = navSearch,
             onActionClick = onSearch,
