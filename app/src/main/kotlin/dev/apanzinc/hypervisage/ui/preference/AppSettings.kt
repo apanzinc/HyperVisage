@@ -37,6 +37,11 @@ class AppSettings(context: Context) {
     )
     val glassBlur = _glassBlur.asStateFlow()
 
+    private val _standardBottomBar = MutableStateFlow(
+        prefs.getBoolean(Preferences.App.STANDARD_BOTTOM_BAR.name, false),
+    )
+    val standardBottomBar = _standardBottomBar.asStateFlow()
+
     fun setPredictiveBack(enabled: Boolean) {
         prefs.edit { putBoolean(Preferences.App.PREDICTIVE_BACK.name, enabled) }
         _predictiveBack.value = enabled
@@ -47,5 +52,11 @@ class AppSettings(context: Context) {
         prefs.edit { putBoolean(Preferences.App.GLASS_BLUR.name, enabled) }
         _glassBlur.value = enabled
         _updates.tryEmit(Preferences.App.GLASS_BLUR)
+    }
+
+    fun setStandardBottomBar(enabled: Boolean) {
+        prefs.edit { putBoolean(Preferences.App.STANDARD_BOTTOM_BAR.name, enabled) }
+        _standardBottomBar.value = enabled
+        _updates.tryEmit(Preferences.App.STANDARD_BOTTOM_BAR)
     }
 }

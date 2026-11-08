@@ -27,6 +27,8 @@ fun ModuleSettingsPage() {
     val predictiveBackSummary = stringResource(R.string.module_predictive_back_summary)
     val glassBlurTitle = stringResource(R.string.module_glass_blur_title)
     val glassBlurSummary = stringResource(R.string.module_glass_blur_summary)
+    val standardBottomBarTitle = stringResource(R.string.module_standard_bottom_bar_title)
+    val standardBottomBarSummary = stringResource(R.string.module_standard_bottom_bar_summary)
 
     // 顶层标签页没有返回箭头，底栏由 MainTabsScreen 统一叠放
     HyperXPage(title = title, navigationIcon = {}) {
@@ -50,6 +52,11 @@ fun ModuleSettingsPage() {
                 key = Preferences.App.GLASS_BLUR,
                 title = glassBlurTitle,
                 summary = glassBlurSummary,
+            )
+            SwitchPreference(
+                key = Preferences.App.STANDARD_BOTTOM_BAR,
+                title = standardBottomBarTitle,
+                summary = standardBottomBarSummary,
             )
         }
 

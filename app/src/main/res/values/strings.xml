@@ -33,6 +33,8 @@
     <string name="module_predictive_back_summary">开启后侧滑返回跟手，关闭则用普通返回动画，默认关闭</string>
     <string name="module_glass_blur_title">界面模糊</string>
     <string name="module_glass_blur_summary">顶栏线性渐进模糊，转场时自动降级。关闭可完全跳过模糊用于排查掉帧</string>
+    <string name="module_standard_bottom_bar_title">标准底栏</string>
+    <string name="module_standard_bottom_bar_summary">改用组件库的标准悬浮底栏，关掉分离式胶囊，默认关闭</string>
 
     <string name="example_switch_title">示例开关</string>
     <string name="example_switch_summary">一个最小可用的功能开关，用来演示设置与 Hook 的联动</string>

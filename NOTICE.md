@@ -54,6 +54,13 @@
 - 许可：Apache License 2.0
 - 说明：应用图标基于 MingCute 图标修改而来（调整了配色、构图与尺寸，并转换为 Android VectorDrawable）。
 
+## Material Icons（androidx.compose.material:material-icons-core）
+
+- 版本：1.7.8
+- 来源：https://github.com/androidx/androidx （AndroidX Compose）
+- 许可：Apache License 2.0
+- 说明：通过 Maven 依赖引入，未修改。只用到 `Icons.Filled` / `Icons.Outlined` 的 Home / Settings / Info / Search 四组图标，做底栏「选中面性、未选中线性」的成对切换，见 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/NavIcons.kt`。应用图标仍来自 MingCute，两者不混用。
+
 ## libxposed API / service
 
 - 来源：https://github.com/libxposed/api、https://github.com/libxposed/service

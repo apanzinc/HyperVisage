@@ -59,12 +59,13 @@ fun SearchPage(onOpenTab: (Int) -> Unit) {
     val debugTitle = stringResource(R.string.module_debug_title)
     val predictiveBackTitle = stringResource(R.string.module_predictive_back_title)
     val glassBlurTitle = stringResource(R.string.module_glass_blur_title)
+    val standardBottomBarTitle = stringResource(R.string.module_standard_bottom_bar_title)
     val iconTitle = stringResource(R.string.about_icon_title)
     val licenseTitle = stringResource(R.string.about_license_title)
 
     val entries = remember(
         exampleTitle, moduleTitle, aboutTitle, enabledTitle, debugTitle,
-        predictiveBackTitle, glassBlurTitle, iconTitle, licenseTitle,
+        predictiveBackTitle, glassBlurTitle, standardBottomBarTitle, iconTitle, licenseTitle,
     ) {
         listOf(
             SearchEntry("SystemUI", TargetExample),
@@ -74,6 +75,7 @@ fun SearchPage(onOpenTab: (Int) -> Unit) {
             SearchEntry(debugTitle, TabSettings),
             SearchEntry(predictiveBackTitle, TabSettings),
             SearchEntry(glassBlurTitle, TabSettings),
+            SearchEntry(standardBottomBarTitle, TabSettings),
             SearchEntry(aboutTitle, TabAbout),
             SearchEntry(iconTitle, TabAbout),
             SearchEntry(licenseTitle, TabAbout),

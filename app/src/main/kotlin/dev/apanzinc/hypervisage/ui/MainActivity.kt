@@ -54,6 +54,7 @@ class MainActivity : HyperXActivity() {
         val appSettings: AppSettings = koinInject()
         val predictiveBack by appSettings.predictiveBack.collectAsState()
         val glassBlur by appSettings.glassBlur.collectAsState()
+        val standardBottomBar by appSettings.standardBottomBar.collectAsState()
         // 二级页（搜索结果）要能定位回某个顶层标签页，用一个一次性事件流通知 Pager
         val tabRequests = remember { MutableSharedFlow<Int>(extraBufferCapacity = 1) }
 
@@ -69,7 +70,12 @@ class MainActivity : HyperXActivity() {
             HyperXAppLayout(
                 config = layoutConfig,
                 predictiveBackEnabled = predictiveBack,
-                primaryContent = { MainTabsScreen(tabRequests = tabRequests) },
+                primaryContent = {
+                    MainTabsScreen(
+                        tabRequests = tabRequests,
+                        standardBottomBar = standardBottomBar,
+                    )
+                },
                 customEntryProvider = { key ->
                     NavEntry(key) {
                         when (key) {

@@ -28,6 +28,7 @@ class AppPreferenceActions(
     override fun <T : Any> get(key: PreferenceKey<T>): T = when (key) {
         Preferences.App.PREDICTIVE_BACK -> appSettings.predictiveBack.value as T
         Preferences.App.GLASS_BLUR -> appSettings.glassBlur.value as T
+        Preferences.App.STANDARD_BOTTOM_BAR -> appSettings.standardBottomBar.value as T
         else -> store.get(key)
     }
 
@@ -35,6 +36,7 @@ class AppPreferenceActions(
         when (key) {
             Preferences.App.PREDICTIVE_BACK -> appSettings.setPredictiveBack(value as Boolean)
             Preferences.App.GLASS_BLUR -> appSettings.setGlassBlur(value as Boolean)
+            Preferences.App.STANDARD_BOTTOM_BAR -> appSettings.setStandardBottomBar(value as Boolean)
             else -> store.put(key, value)
         }
     }

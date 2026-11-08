@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -25,15 +26,13 @@ import dev.apanzinc.hypervisage.R
 import dev.apanzinc.hypervisage.data.Route
 import dev.apanzinc.hypervisage.ui.component.HyperVisageBottomBar
 import dev.apanzinc.hypervisage.ui.component.HyperVisageBottomBarItem
+import dev.apanzinc.hypervisage.ui.component.NavIcons
 import dev.lackluster.hyperx.navigation.LocalNavigator
 import dev.lackluster.hyperx.ui.layout.LocalPageTransitionRunning
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Home
-import top.yukonga.miuix.kmp.icon.extended.Info
-import top.yukonga.miuix.kmp.icon.extended.Search
-import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 
 const val TabHome = 0
 const val TabSettings = 1
@@ -49,11 +48,12 @@ private val TabSpring = spring<Float>(dampingRatio = 0.9f, stiffness = 320f)
  * 没有 push / pop，点底栏是 animateScrollToPage，手指横滑也能直接切页，
  * 各自的滚动位置与输入框状态由 Pager 保留。
  *
- * 底栏在 Pager 之外，切页时它不动，只有选中椭圆跟着滑。
+ * 底栏在 Pager 之外，切页时它不动，选中高光读 Pager 的连续进度，1:1 跟手。
  */
 @Composable
 fun MainTabsScreen(
     tabRequests: MutableSharedFlow<Int>,
+    standardBottomBar: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val pagerState = rememberPagerState { TabCount }
@@ -92,8 +92,12 @@ fun MainTabsScreen(
             }
         }
 
-        MainBottomBar(
+        BottomBarHost(
             pagerState = pagerState,
+            standardBottomBar = standardBottomBar,
+            onSelect = { index ->
+                scope.launch { pagerState.animateScrollToPage(index, animationSpec = TabSpring) }
+            },
             onSearch = { navigator.push(Route.Search) },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
@@ -113,32 +117,60 @@ private fun TabBackHandler(pagerState: PagerState) {
     }
 }
 
+/** 把 Pager 的离散选中页和连续进度都收在这一小块组合里，重组不会波及页面内容。 */
 @Composable
-private fun MainBottomBar(
+private fun BottomBarHost(
     pagerState: PagerState,
+    standardBottomBar: Boolean,
+    onSelect: (Int) -> Unit,
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scope = rememberCoroutineScope()
     val selectedIndex by remember(pagerState) { derivedStateOf { pagerState.currentPage } }
+    val selectedProgress: State<Float> = remember(pagerState) {
+        derivedStateOf { pagerState.currentPage + pagerState.currentPageOffsetFraction }
+    }
     val navHome = stringResource(R.string.home_nav_home)
     val navSettings = stringResource(R.string.home_nav_settings)
     val navAbout = stringResource(R.string.home_nav_about)
     val navSearch = stringResource(R.string.home_nav_search)
 
-    HyperVisageBottomBar(
-        items = listOf(
-            HyperVisageBottomBarItem(MiuixIcons.Home, navHome),
-            HyperVisageBottomBarItem(MiuixIcons.Settings, navSettings),
-            HyperVisageBottomBarItem(MiuixIcons.Info, navAbout),
-        ),
-        selectedIndex = selectedIndex,
-        onSelect = { index ->
-            scope.launch { pagerState.animateScrollToPage(index, animationSpec = TabSpring) }
-        },
-        actionIcon = MiuixIcons.Search,
-        actionContentDescription = navSearch,
-        onActionClick = onSearch,
-        modifier = modifier,
+    val items = listOf(
+        HyperVisageBottomBarItem(NavIcons.HomeLine, NavIcons.HomeFill, navHome),
+        HyperVisageBottomBarItem(NavIcons.SettingsLine, NavIcons.SettingsFill, navSettings),
+        HyperVisageBottomBarItem(NavIcons.AboutLine, NavIcons.AboutFill, navAbout),
     )
+
+    if (standardBottomBar) {
+        // 组件库自带的标准悬浮底栏，开关打开时用回它，不再画分离式胶囊
+        Box(modifier = modifier.fillMaxWidth()) {
+            FloatingNavigationBar {
+                items.forEachIndexed { index, item ->
+                    FloatingNavigationBarItem(
+                        selected = index == selectedIndex,
+                        onClick = { onSelect(index) },
+                        icon = if (index == selectedIndex) item.selectedIcon else item.icon,
+                        label = item.label,
+                    )
+                }
+                FloatingNavigationBarItem(
+                    selected = false,
+                    onClick = onSearch,
+                    icon = NavIcons.SearchLine,
+                    label = navSearch,
+                )
+            }
+        }
+    } else {
+        HyperVisageBottomBar(
+            items = items,
+            selectedIndex = selectedIndex,
+            selectedProgress = selectedProgress,
+            onSelect = onSelect,
+            actionIcon = NavIcons.SearchLine,
+            actionContentDescription = navSearch,
+            onActionClick = onSearch,
+            modifier = modifier,
+        )
+    }
 }

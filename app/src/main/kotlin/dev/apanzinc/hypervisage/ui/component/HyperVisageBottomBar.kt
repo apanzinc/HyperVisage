@@ -3,8 +3,6 @@
 
 package dev.apanzinc.hypervisage.ui.component
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,11 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,13 +41,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -81,7 +74,10 @@ private val IndicatorOverhang = 5.dp
 
 @Immutable
 data class HyperVisageBottomBarItem(
+    /** 未选中：线性图标 */
     val icon: ImageVector,
+    /** 选中：面性图标 */
+    val selectedIcon: ImageVector,
     val label: String,
 )
 
@@ -89,6 +85,8 @@ data class HyperVisageBottomBarItem(
 fun HyperVisageBottomBar(
     items: List<HyperVisageBottomBarItem>,
     selectedIndex: Int,
+    /** Pager 的连续进度（currentPage + offsetFraction），高光在 draw 阶段直接读，和页面严格同步 */
+    selectedProgress: State<Float>,
     onSelect: (Int) -> Unit,
     actionIcon: ImageVector,
     actionContentDescription: String,
@@ -131,6 +129,7 @@ fun HyperVisageBottomBar(
                 width = if (items.size >= 3) CapsuleWidthWide else CapsuleWidth,
                 items = items,
                 index = index,
+                progress = selectedProgress,
                 onSelect = onSelect,
                 containerColor = containerColor,
                 strokeColor = strokeColor,
@@ -155,6 +154,7 @@ private fun NavigationCapsule(
     width: Dp,
     items: List<HyperVisageBottomBarItem>,
     index: Int,
+    progress: State<Float>,
     onSelect: (Int) -> Unit,
     containerColor: Color,
     strokeColor: Color,
@@ -167,41 +167,25 @@ private fun NavigationCapsule(
     val insetPx = with(density) { IndicatorInsetVertical.toPx() }
     val contentInsetPx = with(density) { IndicatorInsetHorizontal.toPx() }
 
-    var barWidth by remember { mutableIntStateOf(0) }
-    // 两条边各自用弹簧驱动，切换时高光会先被拉开再收拢，和上游的独立边缘动画一致
-    val left = remember { Animatable(0f) }
-    val right = remember { Animatable(0f) }
-
-    LaunchedEffect(index, barWidth, items.size) {
-        if (barWidth <= 0) return@LaunchedEffect
-        val slot = (barWidth - contentInsetPx * 2f) / items.size
-        val targetLeft = contentInsetPx + index * slot - overhangPx
-        val targetRight = targetLeft + slot + overhangPx * 2f
-        if (right.value <= left.value) {
-            left.snapTo(targetLeft)
-            right.snapTo(targetRight)
-        } else {
-            launch { left.animateTo(targetLeft, spring(dampingRatio = 0.8f, stiffness = 420f)) }
-            launch { right.animateTo(targetRight, spring(dampingRatio = 0.8f, stiffness = 300f)) }
-        }
-    }
-
     Box(
         modifier = Modifier
             .width(width)
             .height(BarHeight)
             .background(containerColor, shape)
             .border(StrokeWidth, strokeColor, shape)
-            .clip(shape)
-            .onSizeChanged { barWidth = it.width },
+            .clip(shape),
     ) {
-        // 选中态高光。读 Animatable.value 只发生在 draw 阶段，切换不会重组整棵底栏
+        // 高光不再跑自己的弹簧：直接用 Pager 的连续进度算位置，
+        // 手指拖到哪高光就到哪，点击时 Pager 自己的弹簧动画也会 1:1 带过来。
+        // 只在 draw 阶段读 State.value，滑动时零重组。
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .drawBehind {
-                    val l = left.value
-                    val r = right.value
+                    val slot = (size.width - contentInsetPx * 2f) / items.size
+                    val p = progress.value.coerceIn(0f, items.lastIndex.toFloat())
+                    val l = contentInsetPx + p * slot - overhangPx
+                    val r = l + slot + overhangPx * 2f
                     val h = size.height - insetPx * 2f
                     if (r <= l || h <= 0f) return@drawBehind
                     drawRoundRect(
@@ -236,7 +220,7 @@ private fun NavigationCapsule(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            imageVector = item.icon,
+                            imageVector = if (position == index) item.selectedIcon else item.icon,
                             contentDescription = null,
                             modifier = Modifier.size(IconSize),
                             tint = contentColor,

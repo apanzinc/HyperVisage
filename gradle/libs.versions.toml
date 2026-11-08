@@ -28,6 +28,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.19.0" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.7.1" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version = "2.11.0" }
+# 只需要 Icons.Filled / Icons.Outlined 这组成套图标，不引入整个 material 组件库
+androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version = "1.7.8" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
