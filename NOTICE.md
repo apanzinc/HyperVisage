@@ -54,11 +54,12 @@
 - 许可：Apache License 2.0
 - 说明：应用图标基于 MingCute 图标修改而来（调整了配色、构图与尺寸，并转换为 Android VectorDrawable）。
 
-## 小米 misymbol 图标（随 miuix-icons 0.9.4 引入）
+## 底栏图标（本项目自绘）
 
-- 来源：https://github.com/compose-miuix-ui/miuix ，图标字形提取自小米官方 `misymbol_vf.ttf` 图标字体
-- 许可：miuix 项目为 Apache License 2.0，图标随该依赖引入，未修改；字形本身的权属归小米
-- 说明：底栏主页 / 设置 / 关于 / 搜索改用这套小米官方图标，见 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/NavIcons.kt`。该图标集按字体字重提供 Light / Normal / Regular / Medium / Demibold 五档笔画粗细，没有独立的实心「面性」版本，因此选中用 Demibold、未选中用 Light 做粗细对比。此前使用的 AndroidX Material Icons 依赖已移除。应用图标仍来自 MingCute，两者不混用。
+- 位置：`app/src/main/res/drawable/nav_*.xml`
+- 来源：按用户提供的参考截图中分离式底栏的造型重绘，非小米官方图标资源、非 Material Icons
+- 说明：四个图标统一 24dp viewport / 2dp 线宽，各有线性与面性两版，选中面性、未选中线性，随 Pager 进度交叉淡入。见 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/NavIcons.kt`。
+- 先前用过的 AndroidX Material Icons（Apache-2.0）与 miuix-icons 的小米 misymbol 图标均已不再用于底栏：前者造型不符参考，后者只有五档字重、没有实心版，混用会造成粗细与线面不统一。应用图标仍来自 MingCute，与底栏图标不混用。
 
 ## libxposed API / service
 

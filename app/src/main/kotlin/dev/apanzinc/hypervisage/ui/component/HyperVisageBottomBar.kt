@@ -52,7 +52,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * HyperOS 4 风格的分离式悬浮底栏：一个胶囊导航 + 一个独立圆形搜索按钮。
+ * HyperOS 4 风格的固定贴底分离式底栏：一个胶囊导航 + 一个独立圆形搜索按钮。
  * 胶囊里放三个并行标签页（主页 / 设置 / 关于），圆钮是打开搜索页的动作入口。
  *
  * 结构和尺寸参照 compose-miuix-ui/miuix main 分支的 `GlassNavigationBar`
@@ -114,12 +114,14 @@ fun HyperVisageBottomBar(
         .only(WindowInsetsSides.Bottom)
         .asPaddingValues()
         .calculateBottomPadding()
-    val bottomPadding = if (navBarBottom == 0.dp) 32.dp else 16.dp + navBarBottom
 
+    // 底栏是固定贴底的一块，不是浮在页面上的浮层：给不透明底色，
+    // 只留系统导航栏 inset 和很小的上下呼吸，不再留 32dp 悬浮留白。
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = bottomPadding),
+            .background(colors.background)
+            .padding(top = 12.dp, bottom = navBarBottom + 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(

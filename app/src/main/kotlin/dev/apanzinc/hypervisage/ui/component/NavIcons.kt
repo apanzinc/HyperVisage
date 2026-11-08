@@ -3,31 +3,26 @@
 
 package dev.apanzinc.hypervisage.ui.component
 
-import androidx.compose.ui.graphics.vector.ImageVector
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Home
-import top.yukonga.miuix.kmp.icon.extended.Info
-import top.yukonga.miuix.kmp.icon.extended.Search
-import top.yukonga.miuix.kmp.icon.extended.Settings
+import androidx.annotation.DrawableRes
+import dev.apanzinc.hypervisage.R
 
 /**
- * 底栏图标改用 miuix-icons 0.9.4 内置的小米官方 misymbol 图标，见 NOTICE.md。
+ * 底栏图标：按参考截图里小米官方分离式底栏的造型自绘的成套线性 / 面性两版。
+ * 全部 24dp viewport、2dp 线宽，四个图标同一套几何语言，见 `res/drawable/nav_*.xml`。
  *
- * 这套图标是从小米 `misymbol_vf.ttf` 图标字体里按字重提取的，只有
- * Light / Normal / Regular / Medium / Demibold 五档，没有独立的实心「面性」版本。
- * 因此未选中用最细的 Light（线性感），选中用最粗的 Demibold（接近面性），
- * 配合选中椭圆一起做线性 / 面性的观感区分。
+ * 不再用 miuix misymbol 的字重差：它只有粗细五档，没有真正的实心版，
+ * 混着用就是「粗细不一样、线面也不一样」。也不再用 Material Icons。
  */
 object NavIcons {
-    val HomeLine: ImageVector get() = MiuixIcons.Light.Home
-    val HomeActive: ImageVector get() = MiuixIcons.Demibold.Home
+    @DrawableRes val HomeLine = R.drawable.nav_home_line
+    @DrawableRes val HomeActive = R.drawable.nav_home_fill
 
-    val SettingsLine: ImageVector get() = MiuixIcons.Light.Settings
-    val SettingsActive: ImageVector get() = MiuixIcons.Demibold.Settings
+    @DrawableRes val SettingsLine = R.drawable.nav_settings_line
+    @DrawableRes val SettingsActive = R.drawable.nav_settings_fill
 
-    val AboutLine: ImageVector get() = MiuixIcons.Light.Info
-    val AboutActive: ImageVector get() = MiuixIcons.Demibold.Info
+    @DrawableRes val AboutLine = R.drawable.nav_about_line
+    @DrawableRes val AboutActive = R.drawable.nav_about_fill
 
-    val SearchLine: ImageVector get() = MiuixIcons.Regular.Search
-    val SearchActive: ImageVector get() = MiuixIcons.Demibold.Search
+    /** 搜索是独立圆钮上的动作，不参与选中，只要线性版。 */
+    @DrawableRes val SearchLine = R.drawable.nav_search_line
 }

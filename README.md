@@ -56,9 +56,9 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 - fork 的 `NavDisplay(backStack = ...)` 内部会无条件注册 `NavigationBackHandler`，外部没法关掉跟手效果。`HyperXNavDisplay` 照它的 `NavDisplay(entries = ...)` 重载拆开一层，改用 `NavDisplay(sceneState, navigationEventState)` 重载：系统返回手势始终由应用消费，但关闭时交给页面的是另一个永远停在 Idle 的手势 state。
 - 模块设置页的「界面模糊」默认开启，走本地存储。关掉后完全不创建 `LayerBackdrop`、不跑 RuntimeShader，可用来直接判断转场掉帧是不是模糊造成的。
 - 主页 / 设置 / 关于是**并行的三个顶层标签页**，由 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/pages/MainTabsScreen.kt` 的 `HorizontalPager` 承载，不进导航栈；`navigator.push` 只留给示例功能、搜索这类二级页。点底栏走 `animateScrollToPage`，手指横滑也能直接切页，三页各自的滚动位置和输入状态都保留。没有二级页时返回键先滑回主页标签。
-- 底栏在 Pager 之外，切页时不重建；选中高光直接读 `currentPage + currentPageOffsetFraction` 这个连续进度，在 draw 阶段算位置，手指拖到哪高光到哪，不再跑一套自己的弹簧（那会和 Pager 动画错位，看起来「不跟手」）。线性 / 面性两套图标也按同一进度在 `graphicsLayer` 里交叉淡入，不按 `selectedIndex` 硬切，见 `ui/component/NavIcons.kt`。搜索结果用一个 `MutableSharedFlow<Int>` 通知 Pager 滑到对应标签。Pager 滑动同样并入 `LocalPageTransitionRunning`，横滑时两页不会各自跑一遍模糊 shader，见「转场性能」。
-- 模块设置里的「标准底栏」默认关闭。打开后不画分离式胶囊，改用 miuix 自带的 `FloatingNavigationBar`，两档图标和搜索入口都保留；开关存本地 SharedPreferences，不依赖 LSPosed。
-- 底栏是分离式悬浮底栏（`app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/HyperVisageBottomBar.kt`）：胶囊放主页 / 设置 / 关于三项，右侧独立圆钮是搜索入口。结构和尺寸参照 miuix 上游 main 分支尚未发布的 `miuix-glass/GlassNavigationBar`，但实现只用 0.9.4 已有的主题色和 Compose 基础绘制，不引入 backdrop / RuntimeShader，不会给转场再加一遍玻璃合成。三个标签页列表末尾都留了 112dp，让最后一项能滚出遮挡。
+- 底栏固定在屏幕底部：`Column` 里 Pager 用 `weight(1f)`，底栏占独立一行，页面内容不会滚到底栏背后，底栏自身有不透明底色、只留系统导航栏 inset，不再有 32dp 悬浮留白。切页时底栏不重建；选中高光直接读 `currentPage + currentPageOffsetFraction` 这个连续进度，在 draw 阶段算位置，手指拖到哪高光到哪，不再跑一套自己的弹簧（那会和 Pager 动画错位，看起来「不跟手」）。线性 / 面性两套图标也按同一进度在 `graphicsLayer` 里交叉淡入，不按 `selectedIndex` 硬切，见 `ui/component/NavIcons.kt`。搜索结果用一个 `MutableSharedFlow<Int>` 通知 Pager 滑到对应标签。Pager 滑动同样并入 `LocalPageTransitionRunning`，横滑时两页不会各自跑一遍模糊 shader，见「转场性能」。
+- 模块设置里的「标准底栏」默认关闭。打开后不画分离式胶囊，改用 miuix 固定贴底通栏的 `NavigationBar`（不是浮起来的 `FloatingNavigationBar`），线面两档图标和搜索入口都保留；开关存本地 SharedPreferences，不依赖 LSPosed。
+- 底栏是固定贴底的分离式底栏（`app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/HyperVisageBottomBar.kt`）：胶囊放主页 / 设置 / 关于三项，右侧独立圆钮是搜索入口。结构和尺寸参照 miuix 上游 main 分支尚未发布的 `miuix-glass/GlassNavigationBar`，但实现只用 0.9.4 已有的主题色和 Compose 基础绘制，不引入 backdrop / RuntimeShader，不会给转场再加一遍玻璃合成。底栏占独立一行，三个标签页列表末尾只留 16dp 呼吸空间。
 
 ## 转场性能
 
@@ -94,7 +94,7 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 应用图标基于 [MingCute](https://www.mingcute.com/) 的图标修改而来（调整了配色、构图与尺寸），依 Apache-2.0 授权使用。
 原始 SVG 在 `art/icon.svg`，Android 侧的 VectorDrawable 由它生成。
 
-底栏图标用的是 miuix-icons 0.9.4 内置的小米官方 misymbol 图标（字形提取自 `misymbol_vf.ttf`），不再用 AndroidX Material Icons。这套图标只有 Light / Normal / Regular / Medium / Demibold 五档笔画粗细，没有独立的实心版本，所以选中用 Demibold、未选中用 Light 近似「面性 / 线性」，并跟随 Pager 进度交叉淡入。真要完全实心的选中态，得另外找小米系统图标资源。第三方许可明细见 [NOTICE.md](NOTICE.md)。
+底栏图标按参考截图里分离式底栏的造型自绘（`res/drawable/nav_*.xml`）：主页 / 设置 / 关于 / 搜索四个图标统一 24dp viewport、2dp 线宽，线性与面性各一版，选中面性、未选中线性，并跟随 Pager 进度交叉淡入。不用 Material Icons，也不用 miuix misymbol 的字重差（那套只有粗细五档、没有实心版，混用会粗细与线面都不统一）。第三方许可明细见 [NOTICE.md](NOTICE.md)。
 
 ## 许可
 

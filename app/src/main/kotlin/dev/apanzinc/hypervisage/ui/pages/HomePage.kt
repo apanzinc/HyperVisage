@@ -76,7 +76,7 @@ fun HomePage(onOpenTab: (Int) -> Unit) {
             )
         }
 
-        // 悬浮底栏压在列表上方，留出让最后一项能滚出遮挡的空间
-        item { Spacer(modifier = Modifier.height(112.dp)) }
+        // 底栏是独立一行，列表末尾只留少量呼吸空间
+        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }

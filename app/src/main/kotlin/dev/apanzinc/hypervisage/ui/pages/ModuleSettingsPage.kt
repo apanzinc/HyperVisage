@@ -60,6 +60,6 @@ fun ModuleSettingsPage() {
             )
         }
 
-        item { Spacer(modifier = Modifier.height(112.dp)) }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
