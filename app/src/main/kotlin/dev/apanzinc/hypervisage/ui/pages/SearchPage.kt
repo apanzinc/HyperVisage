@@ -118,7 +118,8 @@ fun SearchPage(onOpenTab: (Int) -> Unit) {
             }
         }
 
-        item { Spacer(modifier = Modifier.height(32.dp)) }
+        // 底栏是窗口级常驻覆盖层，二级页同样要留出空间让最后一项滚出遮挡
+        item { Spacer(modifier = Modifier.height(112.dp)) }
     }
 }
 

@@ -8,6 +8,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -47,6 +48,10 @@ import dev.lackluster.hyperx.ui.component.IconSize
 import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.component.ImageSource
 import dev.lackluster.hyperx.ui.theme.HyperXTheme
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.MiuixPopupUtils
@@ -59,6 +64,13 @@ fun HyperXAppLayout(
     colorSchemeMode: ColorSchemeMode = ColorSchemeMode.System,
     customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)? = null,
     emptyContent: @Composable () -> Unit = { DefaultEmptyPage() },
+    /**
+     * 窗口级覆盖层：在所有页面与布局之上绘制，不属于任何页面，也不参与
+     * NavDisplay 的场景转场（不会被裁剪、缩放、变暗或跟着页面滑动）。
+     * 参数是挂在整个内容层上的 [LayerBackdrop]，覆盖层可以用它做背景模糊；
+     * 关闭模糊或设备不支持 RuntimeShader 时为 null。
+     */
+    overlayContent: @Composable BoxScope.(LayerBackdrop?) -> Unit = {},
     primaryContent: @Composable () -> Unit
 ) {
     HyperXTheme(colorSchemeMode = colorSchemeMode) {
@@ -84,40 +96,69 @@ fun HyperXAppLayout(
             LocalNavigator provides navigator,
             LocalHyperXLayoutConfig provides config
         ) {
-            AnimatedContent(
-                targetState = appRootLayout,
-                label = "HyperXLayoutSwitch",
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
+            // 窗口级背景纹理：录制整棵内容树（包含所有页面、以及页面转场时同时存在的两个场景），
+            // 供顶层覆盖层采样。这里不读 LocalPageTransitionRunning —— 覆盖层的模糊是高优先级
+            // 效果，不能因为页面转场就被降级成纯色。
+            val overlayContainerColor = MiuixTheme.colorScheme.background
+            val overlayBackdrop = if (config.isBlurEnabled && isRuntimeShaderSupported()) {
+                rememberLayerBackdrop {
+                    drawRect(overlayContainerColor)
+                    drawContent()
                 }
-            ) { targetLayout ->
-                when (targetLayout) {
-                    AppRootLayout.Split11, AppRootLayout.Split12 -> {
-                        val rightWeight = if (targetLayout == AppRootLayout.Split12) 2.0f else 1.0f
-                        UnifiedSplitLayout(
-                            backStack = backStack,
-                            rightWeight = rightWeight,
-                            predictiveBackEnabled = predictiveBackEnabled,
-                            primaryContent = primaryContent,
-                            emptyContent = emptyContent,
-                            customEntryProvider = customEntryProvider
+            } else {
+                null
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (overlayBackdrop != null) {
+                                Modifier.layerBackdrop(overlayBackdrop)
+                            } else {
+                                Modifier
+                            }
                         )
-                    }
-                    else -> {
-                        val extraPadding = if (targetLayout == AppRootLayout.LargeScreen) {
-                            PaddingValues(horizontal = windowWidth * 0.1f)
-                        } else {
-                            PaddingValues(0.dp)
+                ) {
+                    AnimatedContent(
+                        targetState = appRootLayout,
+                        label = "HyperXLayoutSwitch",
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
                         }
-                        UnifiedNormalLayout(
-                            backStack = backStack,
-                            extraPadding = extraPadding,
-                            predictiveBackEnabled = predictiveBackEnabled,
-                            primaryContent = primaryContent,
-                            customEntryProvider = customEntryProvider
-                        )
+                    ) { targetLayout ->
+                        when (targetLayout) {
+                            AppRootLayout.Split11, AppRootLayout.Split12 -> {
+                                val rightWeight = if (targetLayout == AppRootLayout.Split12) 2.0f else 1.0f
+                                UnifiedSplitLayout(
+                                    backStack = backStack,
+                                    rightWeight = rightWeight,
+                                    predictiveBackEnabled = predictiveBackEnabled,
+                                    primaryContent = primaryContent,
+                                    emptyContent = emptyContent,
+                                    customEntryProvider = customEntryProvider
+                                )
+                            }
+                            else -> {
+                                val extraPadding = if (targetLayout == AppRootLayout.LargeScreen) {
+                                    PaddingValues(horizontal = windowWidth * 0.1f)
+                                } else {
+                                    PaddingValues(0.dp)
+                                }
+                                UnifiedNormalLayout(
+                                    backStack = backStack,
+                                    extraPadding = extraPadding,
+                                    predictiveBackEnabled = predictiveBackEnabled,
+                                    primaryContent = primaryContent,
+                                    customEntryProvider = customEntryProvider
+                                )
+                            }
+                        }
                     }
                 }
+                // 窗口级覆盖层：绘制在所有页面之上，不属于任何页面，也不参与场景转场。
+                overlayContent(overlayBackdrop)
             }
         }
         MiuixPopupUtils.MiuixPopupHost()

@@ -3,19 +3,24 @@
 
 package dev.apanzinc.hypervisage.ui
 
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavEntry
 import dev.apanzinc.hypervisage.data.Route
 import dev.apanzinc.hypervisage.data.preference.Preferences
 import dev.apanzinc.hypervisage.debug.CrashRecorder
+import dev.apanzinc.hypervisage.ui.component.HyperVisageBottomBarOverlay
 import dev.apanzinc.hypervisage.ui.pages.ExamplePage
 import dev.apanzinc.hypervisage.ui.pages.MainTabsScreen
 import dev.apanzinc.hypervisage.ui.pages.SearchPage
+import dev.apanzinc.hypervisage.ui.pages.TabCount
 import dev.apanzinc.hypervisage.ui.preference.AppPreferenceActions
 import dev.apanzinc.hypervisage.ui.preference.AppSettings
 import dev.lackluster.hyperx.core.HyperXActivity
@@ -66,6 +71,10 @@ class MainActivity : HyperXActivity() {
         val standardBottomBar by appSettings.standardBottomBar.collectAsState()
         // 二级页（搜索结果）要能定位回某个顶层标签页，用一个一次性事件流通知 Pager
         val tabRequests = remember { MutableSharedFlow<Int>(extraBufferCapacity = 1) }
+        // Pager 状态与底栏拖动状态都提到窗口层：页面内容和窗口级底栏共用同一份
+        // 连续进度，底栏才不会在页面转场或切页时跟内容错位。
+        val pagerState = rememberPagerState { TabCount }
+        val bottomBarDragging = remember { mutableStateOf(false) }
 
         // 以后可以接上"是否分屏""模糊强度"这类模块自己的外观设置
         val layoutConfig = HyperXLayoutConfig(
@@ -83,8 +92,20 @@ class MainActivity : HyperXActivity() {
                 primaryContent = {
                     MainTabsScreen(
                         tabRequests = tabRequests,
-                        standardBottomBar = standardBottomBar,
+                        pagerState = pagerState,
+                        bottomBarDragging = bottomBarDragging,
+                    )
+                },
+                // 底栏挂在窗口层而不是页面里：模糊是高优先级、常驻效果，
+                // 不能跟着 NavDisplay 的场景转场被裁剪、缩放、变暗或降级。
+                overlayContent = { backdrop ->
+                    HyperVisageBottomBarOverlay(
+                        backdrop = backdrop,
                         glassBlur = glassBlur,
+                        standardBottomBar = standardBottomBar,
+                        pagerState = pagerState,
+                        bottomBarDragging = bottomBarDragging,
+                        modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 },
                 customEntryProvider = { key ->

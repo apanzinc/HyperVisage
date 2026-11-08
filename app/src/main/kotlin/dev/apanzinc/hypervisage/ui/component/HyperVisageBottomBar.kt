@@ -5,6 +5,7 @@ package dev.apanzinc.hypervisage.ui.component
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -60,14 +61,18 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 固定贴底的分离式底栏：胶囊导航 + 独立圆形搜索按钮。
  *
- * 底层材质由 `MainTabsScreen` 的翻转渐进模糊提供，这里只画按钮本身：
- * - 浅色模式：白色底、白色描边、黑色内容，按钮带轻微扩散阴影
- * - 深色模式：柔光玻璃（极淡渐变 + 三层柔光边）、白色内容，按钮同样带轻阴影
+ * 底层材质由窗口级 [HyperVisageBottomBarOverlay] 的翻转渐进模糊提供，
+ * 按钮自己也叠一层更强的背景模糊（textureBlur），两种主题都生效：
+ * - 浅色模式：半透明白底、白色描边、黑色内容，按钮带轻微扩散阴影
+ * - 深色模式：柔光玻璃（渐变 + 三层柔光边）+ 明显提亮的背景模糊、白色内容
  *
  * 阴影只落在按钮上，模糊材质背后不画阴影。
  */
@@ -114,6 +119,10 @@ fun HyperVisageBottomBar(
     actionIcon: ImageVector,
     actionContentDescription: String,
     onActionClick: () -> Unit,
+    /** 窗口级背景纹理；非 null 时按钮自己也做背景模糊 */
+    backdrop: LayerBackdrop?,
+    buttonBlurRadius: Float,
+    buttonBlurColors: BlurColors,
     modifier: Modifier = Modifier,
 ) {
     if (items.isEmpty()) return
@@ -131,7 +140,7 @@ fun HyperVisageBottomBar(
         .asPaddingValues()
         .calculateBottomPadding()
 
-    // 整条底栏自身不画底色，底层就是 MainTabsScreen 的翻转渐进模糊材质
+    // 整条底栏自身不画底色，底层是窗口级覆盖层的翻转渐进模糊材质
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -155,6 +164,9 @@ fun HyperVisageBottomBar(
                 contentColor = contentColor,
                 isLight = isLight,
                 shape = capsuleShape,
+                backdrop = backdrop,
+                blurRadius = buttonBlurRadius,
+                blurColors = buttonBlurColors,
             )
             RoundAction(
                 icon = actionIcon,
@@ -163,6 +175,9 @@ fun HyperVisageBottomBar(
                 contentColor = contentColor,
                 isLight = isLight,
                 onClick = onActionClick,
+                backdrop = backdrop,
+                blurRadius = buttonBlurRadius,
+                blurColors = buttonBlurColors,
             )
         }
     }
@@ -182,6 +197,9 @@ private fun NavigationCapsule(
     contentColor: Color,
     isLight: Boolean,
     shape: RoundedCornerShape,
+    backdrop: LayerBackdrop?,
+    blurRadius: Float,
+    blurColors: BlurColors,
 ) {
     val density = LocalDensity.current
     val overhangPx = with(density) { IndicatorOverhang.toPx() }
@@ -217,6 +235,8 @@ private fun NavigationCapsule(
         animationSpec = spring(dampingRatio = 0.78f, stiffness = 700f),
         label = "indicatorSquish",
     )
+    // 关掉界面模糊时没有窗口级纹理，按钮退回不透明实底，避免半透明表面悬空
+    val fallbackSurface = if (isLight) Color.White else MiuixTheme.colorScheme.surface
 
     Box(
         modifier = Modifier
@@ -230,6 +250,20 @@ private fun NavigationCapsule(
                 spotColor = Color.Black.copy(alpha = 0.10f),
             )
             .clip(shape)
+            .then(
+                if (backdrop == null) {
+                    Modifier.background(fallbackSurface, shape)
+                } else {
+                    // 按钮自己再叠一层比底层更强的背景模糊，两种主题都生效
+                    Modifier.textureBlur(
+                        backdrop = backdrop,
+                        shape = shape,
+                        blurRadius = blurRadius,
+                        noiseCoefficient = 0f,
+                        colors = blurColors,
+                    )
+                }
+            )
             .drawBehind {
                 drawBarSurface(0f, 0f, size.width, size.height, glassTint, 1f, isLight)
 
@@ -321,10 +355,14 @@ private fun RoundAction(
     contentColor: Color,
     isLight: Boolean,
     onClick: () -> Unit,
+    backdrop: LayerBackdrop?,
+    blurRadius: Float,
+    blurColors: BlurColors,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed = rememberPressed(interactionSource)
     val tint = if (pressed.value) contentColor.copy(alpha = PressedAlpha) else contentColor
+    val fallbackSurface = if (isLight) Color.White else MiuixTheme.colorScheme.surface
     Box(
         modifier = Modifier
             .size(ActionSize)
@@ -336,6 +374,19 @@ private fun RoundAction(
                 spotColor = Color.Black.copy(alpha = 0.10f),
             )
             .clip(CircleShape)
+            .then(
+                if (backdrop == null) {
+                    Modifier.background(fallbackSurface, CircleShape)
+                } else {
+                    Modifier.textureBlur(
+                        backdrop = backdrop,
+                        shape = CircleShape,
+                        blurRadius = blurRadius,
+                        noiseCoefficient = 0f,
+                        colors = blurColors,
+                    )
+                }
+            )
             .drawBehind {
                 drawBarSurface(0f, 0f, size.width, size.height, glassTint, 1f, isLight)
             }
@@ -357,7 +408,8 @@ private fun RoundAction(
 
 /**
  * 按钮表面：
- * - 浅色：白色实底 + 白色描边 + 黑色内容（内容由调用方设置），选中项是同色系稍深一层
+ * - 浅色：半透明白底 + 白色描边 + 黑色内容（内容由调用方设置），选中项是同色系稍深一层。
+ *   必须半透明，否则会把自己那层背景模糊整个盖住，浅色下就完全看不出模糊
  * - 深色：一层极淡玻璃渐变 + 三层由外到内渐亮的柔光边，是 BloomStroke 的纯绘制近似
  */
 private fun DrawScope.drawBarSurface(
@@ -372,7 +424,12 @@ private fun DrawScope.drawBarSurface(
     if (width <= 0f || height <= 0f) return
     val corner = CornerRadius(height / 2f)
     if (isLight) {
-        val base = if (intensity > 1.5f) Color(0xFFF1F1F1) else Color.White
+        // 半透明而不是白实底，让按钮自己的背景模糊能透出被糊开的内容
+        val base = if (intensity > 1.5f) {
+            Color(0xFFF1F1F1).copy(alpha = 0.74f)
+        } else {
+            Color.White.copy(alpha = 0.66f)
+        }
         drawRoundRect(
             color = base,
             topLeft = Offset(left, top),

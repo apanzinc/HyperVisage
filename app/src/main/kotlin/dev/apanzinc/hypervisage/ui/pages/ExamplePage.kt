@@ -3,8 +3,12 @@
 
 package dev.apanzinc.hypervisage.ui.pages
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.apanzinc.hypervisage.R
 import dev.apanzinc.hypervisage.data.preference.Preferences
 import dev.lackluster.hyperx.ui.layout.HyperXPage
@@ -39,5 +43,7 @@ fun ExamplePage() {
                 summary = toastSummary,
             )
         }
+        // 底栏是窗口级常驻覆盖层，二级页同样要留出空间让最后一项滚出遮挡
+        item { Spacer(modifier = Modifier.height(112.dp)) }
     }
 }

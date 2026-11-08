@@ -55,21 +55,23 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 - 该开关只影响本 App 界面，存本地 SharedPreferences（`AppSettings`），不依赖 LSPosed 服务是否连上。
 - fork 的 `NavDisplay(backStack = ...)` 内部会无条件注册 `NavigationBackHandler`，外部没法关掉跟手效果。`HyperXNavDisplay` 照它的 `NavDisplay(entries = ...)` 重载拆开一层，改用 `NavDisplay(sceneState, navigationEventState)` 重载：系统返回手势始终由应用消费，但关闭时交给页面的是另一个永远停在 Idle 的手势 state。
 - 模块设置页新增「主题模式」下拉：跟随系统 / 浅色模式 / 深色模式，默认跟随系统。存本地 SharedPreferences（`Preferences.App.THEME_MODE`，0/1/2），经 `AppSettings.themeMode` 的 StateFlow 在 `MainActivity.AppContent` 映射成 miuix 的 `ColorSchemeMode.System/Light/Dark`，传给 `HyperXAppLayout` 新增的 `colorSchemeMode` 参数（内部 `HyperXTheme` 据此重建 `ThemeController`）。崩溃报告页用同一套配色。切换后整棵 Compose 树重组，不需要重建 Activity。
-- 模块设置页的「界面模糊」默认开启，走本地存储，控制顶栏渐进模糊；底栏底层只在深色模式下启用，浅色模式整层隐藏（不建 `LayerBackdrop`、不跑 RuntimeShader、也不补任何底色，按钮直接浮在页面背景上）。开关关掉后两层模糊都完全跳过，可用来直接判断转场掉帧是不是模糊造成的。
+- 模块设置页的「界面模糊」默认开启，走本地存储。页面内顶栏的渐进模糊仍会在页面转场时降级；底栏模糊是高优先级、常驻效果，浅色深色都完整渲染、转场不降级。开关关掉后所有模糊完全跳过，可用来直接判断掉帧是不是模糊造成的。
 - 主页 / 设置 / 关于是**并行的三个顶层标签页**，由 `app/src/main/kotlin/dev/apanzinc/hypervisage/ui/pages/MainTabsScreen.kt` 的 `HorizontalPager` 承载，不进导航栈；`navigator.push` 只留给示例功能、搜索这类二级页。点底栏走 `animateScrollToPage`，手指横滑也能直接切页，三页各自的滚动位置和输入状态都保留。没有二级页时返回键先滑回主页标签。
-- 底栏固定在屏幕底部。底层要采到内容纹理，所以 `MainTabsScreen` 用 `Box` 让 Pager 铺满全屏、底栏作为覆盖层压在底部（不是带留白的悬浮胶囊）；三个标签页列表末尾留 112dp，最后一项仍能滚出遮挡。底栏底层只在深色 + 模糊开启时铺 `progressiveTextureBlur`，翻转 180° 用 `ProgressiveBlur.Bottom`：底部最模糊、越往上越清晰；`BlurColors` 叠一层背景色，`drawBehind` 只补从透明到 0.35 alpha 的淡竖向过渡。浅色模式、模糊关闭、转场 / 拖动时整层隐藏，不画任何底色、不拆节点（浅色下早先补的纯背景色会连成一条白，已去掉）。切页时底栏不重建；选中高光（选择器）直接读 `currentPage + currentPageOffsetFraction` 这个连续进度，在 draw 阶段算位置，手指拖到哪高光到哪，不再跑一套自己的弹簧。胶囊本身也支持横向拖动：`pointerInput` 把手指位移换算成页偏移喂给 `PagerState.dispatchRawDelta(pageDelta * layoutInfo.pageSize)`，页面和高光同一份进度，松手用弹簧吸到最近页。方向按真机手感取正（手指左滑进下一页），不按源码推导的符号硬套。底栏拖动同样并入 `LocalPageTransitionRunning`，横滑时两页不会各自跑一遍模糊 shader，见「转场性能」。搜索结果用一个 `MutableSharedFlow<Int>` 通知 Pager 滑到对应标签。
+- 底栏**不属于任何页面**。`HyperXAppLayout` 新增 `overlayContent: @Composable BoxScope.(LayerBackdrop?) -> Unit`，窗口级 `Box` 把 `AnimatedContent`（全部页面与布局）和覆盖层并列，覆盖层在所有页面之上绘制；`rememberLayerBackdrop` 录的是整棵内容树，不是某一个 Pager。因此底栏不会被 NavDisplay 的场景转场裁剪、缩放、变暗，也不会跟着页面一起被降级。`MainTabsScreen` 现在只剩 `HorizontalPager`，`LocalPageTransitionRunning` 的降级只作用于页面内顶栏。
+- 底栏底层（`app/ui/component/HyperVisageBottomBarOverlay.kt`）固定贴底、高 148dp，铺 `progressiveTextureBlur` + `ProgressiveBlur.Bottom`（翻转 180°：底部最模糊、越往上越清晰），半径 22dp。**半径单位是 dp**，miuix-blur 的 effect 内部会自己乘 density，再 `toPx()` 会把半径放大 density 倍。浅色/深色用两套 `BlurColors`：浅色叠一层很淡的冷灰玻璃色并抬高对比度，让被糊开的内容和纯白背景分开，而不是靠灰/白实底当边界；深色叠背景色 + 微白雾面。`drawBehind` 只补从透明到 0.26~0.28 alpha 的淡竖向过渡。只有关掉「界面模糊」或设备不支持 RuntimeShader 时才整层隐藏，不补底色。
+- 选中高光（选择器）直接读 `currentPage + currentPageOffsetFraction` 这个连续进度，在 draw 阶段算位置，手指拖到哪高光到哪，不再跑一套自己的弹簧。胶囊本身也支持横向拖动：`pointerInput` 把手指位移换算成页偏移喂给 `PagerState.dispatchRawDelta(pageDelta * layoutInfo.pageSize)`，页面和高光同一份进度，松手用弹簧吸到最近页。方向按真机手感取正（手指左滑进下一页），不按源码推导的符号硬套。Pager 状态与底栏拖动状态都由 `MainActivity` 提升，页面内容和窗口级底栏共用同一份进度。三个标签页和两个二级页列表末尾都留 112dp，让内容能滚到底栏后面，模糊才有东西可采。搜索结果用一个 `MutableSharedFlow<Int>` 通知 Pager 滑到对应标签。
 - 模块设置里的「标准底栏」默认关闭。打开后不画分离式胶囊，改用 miuix 固定贴底通栏的 `NavigationBar`（不是浮起来的 `FloatingNavigationBar`），图标和搜索入口都保留；开关存本地 SharedPreferences，不依赖 LSPosed。
-- 底栏按钮（`app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/HyperVisageBottomBar.kt`）：胶囊放主页 / 设置 / 关于三项，右侧独立圆钮是搜索入口。两套主题分开处理：浅色是白色实底 + 白色 0.75dp 描边 + 黑色图标文字（之前直接用 `onBackground`，图标糊在白底里看不见），选中项是同色系稍深的一层；深色是柔光玻璃（极淡渐变 + 三层柔光边，`BloomStroke` 的纯绘制近似）+ 白色内容。两种模式都只在胶囊和圆钮上加 3dp 轻微扩散阴影，模糊材质背后不加阴影。按下时该项图标和文字变灰，选择器压扁并轻微拉宽，松手弹簧回弹。结构和尺寸参照 miuix 上游 main 分支尚未发布的 `miuix-glass/GlassNavigationBar`。
+- 底栏按钮（`app/src/main/kotlin/dev/apanzinc/hypervisage/ui/component/HyperVisageBottomBar.kt`）：胶囊放主页 / 设置 / 关于三项，右侧独立圆钮是搜索入口。按钮自己再叠一层 `textureBlur`，半径 32dp，明显强于底层的 22dp；深色 `BlurColors` 额外提亮并加白色雾面，玻璃块更明显地浮出来。浅色表面从白色实底改成 0.66 alpha 半透明白（选中项 0.74），否则会把按钮自己那层模糊整个盖住；保留白色 0.75dp 描边和黑色图标文字（之前直接用 `onBackground`，图标糊在白底里看不见），深色是柔光玻璃（极淡渐变 + 三层柔光边，`BloomStroke` 的纯绘制近似）+ 白色内容。关闭模糊时按钮退回不透明实底，避免半透明表面悬空。两种模式都只在胶囊和圆钮上加 3dp 轻微扩散阴影，模糊材质背后不加阴影。按下时该项图标和文字变灰，选择器压扁并轻微拉宽，松手弹簧回弹。结构和尺寸参照 miuix 上游 main 分支尚未发布的 `miuix-glass/GlassNavigationBar`。
 
 ## 转场性能
 
-`AnimatedContent` 转场时会同时合成两个场景。若每个场景都各自 `layerBackdrop` 录制内容纹理、各自跑一遍 `progressiveTextureBlur` 的 RuntimeShader，每帧开销翻倍。miuix 0.9.4 的 API 文档也注明渐进模糊比普通模糊多一趟全分辨率叠加 pass，所以转场期间要把它停掉。
+`AnimatedContent` 转场时会同时合成两个场景。若每个场景都各自 `layerBackdrop` 录制内容纹理、各自跑一遍 `progressiveTextureBlur` 的 RuntimeShader，每帧开销翻倍。miuix 0.9.4 的 API 文档也注明渐进模糊比普通模糊多一趟全分辨率叠加 pass，所以**页面内**的模糊在转场期间要停掉；窗口级底栏模糊是常驻的高优先级效果，不降级。
 
 - `HyperXNavDisplay` 维护转场状态机：导航栈变化覆盖 push / pop，手势 `InProgress` 覆盖跟手阶段；跟手的 `progress` 每帧都在变，用 `distinctUntilChanged` 只关心是否处于 `InProgress`，避免反复取消重启收尾协程
-- `LocalPageTransitionRunning` 下发的是 `State<Boolean>` 引用而不是 Boolean 值，读值的只有顶栏/底栏那一小块组合。直接下发 Boolean 会让整棵 NavDisplay 在动画开始和结束时各重组一次，连带重建 `SceneInfo` 和手势 state，正好卡在那两帧上
+- `LocalPageTransitionRunning` 下发的是 `State<Boolean>` 引用而不是 Boolean 值，读值的只有页面内顶栏那一小块组合。直接下发 Boolean 会让整棵 NavDisplay 在动画开始和结束时各重组一次，连带重建 `SceneInfo` 和手势 state，正好卡在那两帧上
 - `HyperXScaffold` 不拆装绘制节点，改用 miuix 0.9.4 自带的 `enabled` 开关：`drawBackdrop(enabled = false)` 时 `draw()` 直接 `drawContent()` 返回、`measure()` 也不 `placeWithLayer`，跳过整个 shader 而不重建节点树。底色在 `drawBehind` 里读 state 切换，只触发重绘
 - `BlurEffect` 在转场期间跳过离屏纹理里的 `drawContent()`，两场景合成时少重画一遍整页内容；屏幕上的内容由 `LayerBackdropNode` 正常绘制，不受影响
-- 静止状态和转场结束后仍是完整的线性渐进模糊，只有切换过程降级；降级/恢复各一次轻量的节点属性更新，不再有节点重建
+- 页面内的线性渐进模糊静止时和转场结束后仍完整渲染，只有切换过程降级；窗口级底栏模糊全程常驻。降级/恢复各一次轻量的节点属性更新，不再有节点重建
 
 ## 柔光玻璃
 
@@ -77,7 +79,7 @@ scope 级 Hooker `attach` 若干 rule 级 Hooker，父节点关闭时子节点�
 
 - `hyperx-compose/ui/effect/GlassEffect.kt`：`BloomStroke` 边缘光晕 + `rememberTiltLight` 随设备倾斜移动的主光源，深浅主题分别取预设
 - `hyperx-compose/ui/layout/HyperXScaffold.kt`：改用 `progressiveTextureBlur` + `ProgressiveBlur.Top` 做线性渐变模糊（顶部最强、向下渐清晰，也就是从下到上逐渐模糊），并移除盖住模糊的纯色层；转场期间按 `LocalPageTransitionRunning` 用 `enabled` 关掉 shader，见「转场性能」
-- `app/ui/pages/MainTabsScreen.kt` 的 `BottomBarBlurLayer`：仅深色 + 界面模糊开启时创建 `rememberBlurBackdrop`，渐变换成 `ProgressiveBlur.Bottom`（翻转 180°，下面最模糊、上面越来越清晰），半径 18dp 比顶栏小；`layerBackdrop` 挂在 Pager 上，和页面内 `HyperXScaffold` 的顶栏 backdrop 是两层，静止时才跑 shader；浅色模式不创建 backdrop、整层不绘制
+- `app/ui/component/HyperVisageBottomBarOverlay.kt`：窗口级底栏材质层，`progressiveTextureBlur` + `ProgressiveBlur.Bottom`（翻转 180°，下面最模糊、上面越来越清晰），半径 22dp；采样的是 `HyperXAppLayout` 挂在整个内容层上的窗口级 `LayerBackdrop`，和页面内 `HyperXScaffold` 的顶栏 backdrop 是两层。不读 `LocalPageTransitionRunning`，转场时不降级；浅色深色都完整渲染。胶囊和圆钮另外各叠一层 32dp 的 `textureBlur`
 - `HyperXLayoutConfig.isGlassHighlightEnabled`：高光总开关，**默认关**。顶栏/底栏是贴边矩形，`BloomStroke` 的描边会显示成一条白色亮线；只有卡片类圆角玻璃面才建议打开
 - `HyperXLayoutConfig.lightBlurAlpha / darkBlurAlpha`：玻璃底色浓度，默认 0.32 / 0.28；调太高会糊成一块纯色，把渐变遮住
 
