@@ -77,6 +77,7 @@ fun HomePage(onOpenTab: (Int) -> Unit) {
         }
 
         // 底栏是独立一行，列表末尾只留少量呼吸空间
-        item { Spacer(modifier = Modifier.height(16.dp)) }
+        // 底栏是压在内容上的模糊覆盖层，留出让最后一项滚出遮挡的空间
+        item { Spacer(modifier = Modifier.height(112.dp)) }
     }
 }

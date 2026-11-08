@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -62,12 +63,13 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 固定贴底的柔光玻璃分离式底栏：胶囊导航 + 独立圆形搜索按钮。
+ * 固定贴底的分离式底栏：胶囊导航 + 独立圆形搜索按钮。
  *
- * 整条底栏不画底色，就是页面背景色；胶囊和圆钮也没有灰色实底或硬描边，
- * 只叠一层极淡的玻璃渐变和多层柔光边（BloomStroke 的轻量纯绘制近似）。
- * 选中项是同一套玻璃、浓度更高的一块，不是拿灰色块当边界。
- * 不引入 backdrop / RuntimeShader，页面转场时不会多跑一遍玻璃合成。
+ * 底层材质由 `MainTabsScreen` 的翻转渐进模糊提供，这里只画按钮本身：
+ * - 浅色模式：白色底、白色描边、黑色内容，按钮带轻微扩散阴影
+ * - 深色模式：柔光玻璃（极淡渐变 + 三层柔光边）、白色内容，按钮同样带轻阴影
+ *
+ * 阴影只落在按钮上，模糊材质背后不画阴影。
  */
 private val BarHeight = 56.dp
 private val CapsuleWidth = 208.dp
@@ -81,6 +83,9 @@ private val LabelSize = 11.sp
 private val IndicatorInsetVertical = 3.dp
 private val IndicatorInsetHorizontal = 8.dp
 private val IndicatorOverhang = 5.dp
+/** 按钮的轻微扩散阴影，材质层不加 */
+private val ButtonShadow = 3.dp
+private val ButtonStroke = 0.75.dp
 
 /** 按下时图标和文字的灰度，按压反馈不做 ripple。 */
 private const val PressedAlpha = 0.42f
@@ -115,10 +120,10 @@ fun HyperVisageBottomBar(
 
     val index = selectedIndex.coerceIn(0, items.lastIndex)
     val colors = MiuixTheme.colorScheme
-    val isDark = colors.background.luminance() < 0.5f
-    val contentColor = colors.onBackground
-    // 深色用白光、浅色用暗影，两边都只取很低的不透明度
-    val glassTint = if (isDark) Color.White else Color.Black
+    val isLight = colors.background.luminance() >= 0.5f
+    // 浅色模式内容固定黑色，避免图标糊在白底里；深色沿用主题的浅色前景
+    val contentColor = if (isLight) Color.Black else colors.onBackground
+    val glassTint = if (isLight) Color.Black else Color.White
     val capsuleShape = RoundedCornerShape(percent = 50)
 
     val navBarBottom = WindowInsets.navigationBars
@@ -126,7 +131,7 @@ fun HyperVisageBottomBar(
         .asPaddingValues()
         .calculateBottomPadding()
 
-    // 整条底栏没有自己的底色，直接是页面背景色；只留系统导航栏 inset
+    // 整条底栏自身不画底色，底层就是 MainTabsScreen 的翻转渐进模糊材质
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -148,6 +153,7 @@ fun HyperVisageBottomBar(
                 onDragActiveChange = onDragActiveChange,
                 glassTint = glassTint,
                 contentColor = contentColor,
+                isLight = isLight,
                 shape = capsuleShape,
             )
             RoundAction(
@@ -155,6 +161,7 @@ fun HyperVisageBottomBar(
                 contentDescription = actionContentDescription,
                 glassTint = glassTint,
                 contentColor = contentColor,
+                isLight = isLight,
                 onClick = onActionClick,
             )
         }
@@ -173,6 +180,7 @@ private fun NavigationCapsule(
     onDragActiveChange: (Boolean) -> Unit,
     glassTint: Color,
     contentColor: Color,
+    isLight: Boolean,
     shape: RoundedCornerShape,
 ) {
     val density = LocalDensity.current
@@ -214,12 +222,18 @@ private fun NavigationCapsule(
         modifier = Modifier
             .width(width)
             .height(BarHeight)
+            .shadow(
+                elevation = ButtonShadow,
+                shape = shape,
+                clip = false,
+                ambientColor = Color.Black.copy(alpha = 0.10f),
+                spotColor = Color.Black.copy(alpha = 0.10f),
+            )
             .clip(shape)
             .drawBehind {
-                // 容器：极淡玻璃，几乎就是背景色
-                drawSoftGlass(0f, 0f, size.width, size.height, glassTint, 1f)
+                drawBarSurface(0f, 0f, size.width, size.height, glassTint, 1f, isLight)
 
-                // 选择器：同套玻璃、浓度更高，读 Pager 连续进度；按压时压扁并轻微拉宽
+                // 选择器：同套材质、浓度更高，读 Pager 连续进度；按压时压扁并轻微拉宽
                 val slot = (size.width - contentInsetPx * 2f) / items.size
                 val p = progress.value.coerceIn(0f, items.lastIndex.toFloat())
                 val s = squish.value
@@ -227,13 +241,14 @@ private fun NavigationCapsule(
                 val h = (size.height - insetPx * 2f) * (1f - SquishHeight * s)
                 if (w <= 0f || h <= 0f) return@drawBehind
                 val centerX = contentInsetPx + (p + 0.5f) * slot
-                drawSoftGlass(
+                drawBarSurface(
                     centerX - w / 2f,
                     (size.height - h) / 2f,
                     w,
                     h,
                     glassTint,
                     2.2f,
+                    isLight,
                 )
             }
             .pointerInput(slotPx, onDragPageDelta, onDragEnd, onDragActiveChange) {
@@ -304,6 +319,7 @@ private fun RoundAction(
     contentDescription: String,
     glassTint: Color,
     contentColor: Color,
+    isLight: Boolean,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -312,9 +328,16 @@ private fun RoundAction(
     Box(
         modifier = Modifier
             .size(ActionSize)
+            .shadow(
+                elevation = ButtonShadow,
+                shape = CircleShape,
+                clip = false,
+                ambientColor = Color.Black.copy(alpha = 0.10f),
+                spotColor = Color.Black.copy(alpha = 0.10f),
+            )
             .clip(CircleShape)
             .drawBehind {
-                drawSoftGlass(0f, 0f, size.width, size.height, glassTint, 1f)
+                drawBarSurface(0f, 0f, size.width, size.height, glassTint, 1f, isLight)
             }
             .clickable(
                 interactionSource = interactionSource,
@@ -333,19 +356,41 @@ private fun RoundAction(
 }
 
 /**
- * 柔光玻璃的纯绘制近似：一层上下略有明暗的极淡玻璃渐变，加三层由外到内渐亮的
- * 圆角描边，形成柔光晕而不是一条硬白线，也不垫灰色实底。
+ * 按钮表面：
+ * - 浅色：白色实底 + 白色描边 + 黑色内容（内容由调用方设置），选中项是同色系稍深一层
+ * - 深色：一层极淡玻璃渐变 + 三层由外到内渐亮的柔光边，是 BloomStroke 的纯绘制近似
  */
-private fun DrawScope.drawSoftGlass(
+private fun DrawScope.drawBarSurface(
     left: Float,
     top: Float,
     width: Float,
     height: Float,
     tint: Color,
     intensity: Float,
+    isLight: Boolean,
 ) {
     if (width <= 0f || height <= 0f) return
     val corner = CornerRadius(height / 2f)
+    if (isLight) {
+        val base = if (intensity > 1.5f) Color(0xFFF1F1F1) else Color.White
+        drawRoundRect(
+            color = base,
+            topLeft = Offset(left, top),
+            size = Size(width, height),
+            cornerRadius = corner,
+        )
+        val stroke = ButtonStroke.toPx()
+        val inset = stroke / 2f
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(left + inset, top + inset),
+            size = Size(width - inset * 2f, height - inset * 2f),
+            cornerRadius = CornerRadius(height / 2f - inset),
+            style = Stroke(width = stroke),
+        )
+        return
+    }
+
     val fill = Brush.verticalGradient(
         colors = listOf(
             tint.copy(alpha = 0.034f * intensity * 1.6f),

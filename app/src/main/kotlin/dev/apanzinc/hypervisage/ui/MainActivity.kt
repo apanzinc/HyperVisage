@@ -74,6 +74,7 @@ class MainActivity : HyperXActivity() {
                     MainTabsScreen(
                         tabRequests = tabRequests,
                         standardBottomBar = standardBottomBar,
+                        glassBlur = glassBlur,
                     )
                 },
                 customEntryProvider = { key ->
