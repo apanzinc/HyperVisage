@@ -70,9 +70,10 @@ private val BottomBarBlurRadius = 18.dp
  * 没有 push / pop，点底栏是 animateScrollToPage，手指横滑也能直接切页，
  * 各自的滚动位置与输入框状态由 Pager 保留。
  *
- * 底栏固定贴在屏幕底部，但页面内容会延伸到它后面：底层模糊要采到内容，
- * 就必须让内容铺满整个屏幕，底栏作为覆盖层压在底部。三个标签页列表末尾
- * 留 112dp，最后一项仍能滚出遮挡。
+ * 底栏固定贴在屏幕底部，页面内容延伸到它后面，底栏作为覆盖层压在底部。
+ * 三个标签页列表末尾留 112dp，最后一项仍能滚出遮挡。
+ * 深色 + 界面模糊开启时底层才铺翻转渐进模糊；浅色或开关关闭时整层隐藏，
+ * 不再补一条不透明背景色，按钮直接浮在页面背景上。
  */
 @Composable
 fun MainTabsScreen(
@@ -109,7 +110,10 @@ fun MainTabsScreen(
     // 让 backdrop 也读到合并后的转场状态：横滑时同样跳过离屏录制
     CompositionLocalProvider(LocalPageTransitionRunning provides tabTransition) {
         val colors = MiuixTheme.colorScheme
-        val backdrop = if (glassBlur) {
+        // 浅色模式下底栏底层整层隐藏：浅色页面背景就是白的，再叠白底会连成一片。
+        // 「界面模糊」关掉时同样隐藏。只有深色 + 开关开启才创建 backdrop / 跑 shader。
+        val bottomBarBlurEnabled = glassBlur && colors.background.luminance() < 0.5f
+        val backdrop = if (bottomBarBlurEnabled) {
             rememberBlurBackdrop(containerColor = colors.background)
         } else {
             null
@@ -160,11 +164,12 @@ fun MainTabsScreen(
 }
 
 /**
- * 底栏的底层材质：和顶栏同一套渐进模糊，但翻转 180° 用 `ProgressiveBlur.Bottom`，
- * 也就是底部最模糊、越往上越清晰。材质本身不加阴影，阴影只落在按钮上。
+ * 底栏的底层材质：深色 + 界面模糊开启时，用和顶栏同一套渐进模糊但翻转 180°
+ * 的 `ProgressiveBlur.Bottom`，底部最模糊、越往上越清晰。材质本身不加阴影，
+ * 阴影只落在按钮上。
  *
- * 模糊关闭、设备不支持或转场期间，直接在 draw 阶段补一层不透明背景色，
- * 不拆装节点、不跑 shader。
+ * 浅色模式、模糊开关关闭、设备不支持或转场期间，整层直接隐藏：不创建 backdrop、
+ * 不跑 shader、也不补任何底色，按钮直接浮在页面背景上。不拆装节点。
  */
 @Composable
 private fun BottomBarBlurLayer(
@@ -174,15 +179,12 @@ private fun BottomBarBlurLayer(
     content: @Composable () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
-    val isDark = colors.background.luminance() < 0.5f
     val transition = LocalPageTransitionRunning.current
     val blurEnabled = glassBlur && backdrop != null && !transition.value
     val blurRadius = with(LocalDensity.current) { BottomBarBlurRadius.toPx() }
     val blurColors = remember(colors.background) {
         BlurColors(
-            blendColors = listOf(
-                BlendColorEntry(colors.background.copy(alpha = if (isDark) 0.52f else 0.58f))
-            )
+            blendColors = listOf(BlendColorEntry(colors.background.copy(alpha = 0.52f)))
         )
     }
 
@@ -204,16 +206,14 @@ private fun BottomBarBlurLayer(
                 }
             )
             .drawBehind {
-                if (!blurEnabled) {
-                    drawRect(color = colors.background)
-                } else {
-                    // 底部压一层背景色，向上渐透明，让「越往上越清晰」有实体过渡
+                // 隐藏态什么都不画，别再拿一层不透明背景色当边界（浅色下就是一条白）。
+                // 只有真正跑模糊时补一层很淡的竖向过渡，向上渐透明。
+                if (blurEnabled) {
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                colors.background.copy(alpha = 0.45f),
-                                colors.background,
+                                colors.background.copy(alpha = 0.35f),
                             ),
                         )
                     )

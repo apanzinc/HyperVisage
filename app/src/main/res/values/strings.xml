@@ -32,7 +32,7 @@
     <string name="module_predictive_back_title">预测返回</string>
     <string name="module_predictive_back_summary">开启后侧滑返回跟手，关闭则用普通返回动画，默认关闭</string>
     <string name="module_glass_blur_title">界面模糊</string>
-    <string name="module_glass_blur_summary">顶栏与底栏渐进模糊（底栏方向翻转），转场时自动降级。关闭可完全跳过模糊用于排查掉帧</string>
+    <string name="module_glass_blur_summary">顶栏渐进模糊；底栏模糊仅深色模式生效，浅色模式直接隐藏底层。转场时自动降级，关闭可完全跳过模糊用于排查掉帧</string>
     <string name="module_standard_bottom_bar_title">标准底栏</string>
     <string name="module_standard_bottom_bar_summary">改用组件库的标准悬浮底栏，关掉分离式胶囊，默认关闭</string>
 
