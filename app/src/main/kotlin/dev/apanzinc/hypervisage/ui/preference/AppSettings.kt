@@ -42,6 +42,11 @@ class AppSettings(context: Context) {
     )
     val standardBottomBar = _standardBottomBar.asStateFlow()
 
+    private val _themeMode = MutableStateFlow(
+        prefs.getInt(Preferences.App.THEME_MODE.name, Preferences.App.THEME_SYSTEM),
+    )
+    val themeMode = _themeMode.asStateFlow()
+
     fun setPredictiveBack(enabled: Boolean) {
         prefs.edit { putBoolean(Preferences.App.PREDICTIVE_BACK.name, enabled) }
         _predictiveBack.value = enabled
@@ -58,5 +63,11 @@ class AppSettings(context: Context) {
         prefs.edit { putBoolean(Preferences.App.STANDARD_BOTTOM_BAR.name, enabled) }
         _standardBottomBar.value = enabled
         _updates.tryEmit(Preferences.App.STANDARD_BOTTOM_BAR)
+    }
+
+    fun setThemeMode(mode: Int) {
+        prefs.edit { putInt(Preferences.App.THEME_MODE.name, mode) }
+        _themeMode.value = mode
+        _updates.tryEmit(Preferences.App.THEME_MODE)
     }
 }

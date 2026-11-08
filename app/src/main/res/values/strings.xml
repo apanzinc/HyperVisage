@@ -35,6 +35,11 @@
     <string name="module_glass_blur_summary">顶栏渐进模糊；底栏模糊仅深色模式生效，浅色模式直接隐藏底层。转场时自动降级，关闭可完全跳过模糊用于排查掉帧</string>
     <string name="module_standard_bottom_bar_title">标准底栏</string>
     <string name="module_standard_bottom_bar_summary">改用组件库的标准悬浮底栏，关掉分离式胶囊，默认关闭</string>
+    <string name="module_theme_title">主题模式</string>
+    <string name="module_theme_summary">跟随系统，或强制使用浅色 / 深色</string>
+    <string name="module_theme_system">跟随系统</string>
+    <string name="module_theme_light">浅色模式</string>
+    <string name="module_theme_dark">深色模式</string>
 
     <string name="example_switch_title">示例开关</string>
     <string name="example_switch_summary">一个最小可用的功能开关，用来演示设置与 Hook 的联动</string>

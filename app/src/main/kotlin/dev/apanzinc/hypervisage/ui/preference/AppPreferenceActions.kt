@@ -29,6 +29,7 @@ class AppPreferenceActions(
         Preferences.App.PREDICTIVE_BACK -> appSettings.predictiveBack.value as T
         Preferences.App.GLASS_BLUR -> appSettings.glassBlur.value as T
         Preferences.App.STANDARD_BOTTOM_BAR -> appSettings.standardBottomBar.value as T
+        Preferences.App.THEME_MODE -> appSettings.themeMode.value as T
         else -> store.get(key)
     }
 
@@ -37,6 +38,7 @@ class AppPreferenceActions(
             Preferences.App.PREDICTIVE_BACK -> appSettings.setPredictiveBack(value as Boolean)
             Preferences.App.GLASS_BLUR -> appSettings.setGlassBlur(value as Boolean)
             Preferences.App.STANDARD_BOTTOM_BAR -> appSettings.setStandardBottomBar(value as Boolean)
+            Preferences.App.THEME_MODE -> appSettings.setThemeMode(value as Int)
             else -> store.put(key, value)
         }
     }

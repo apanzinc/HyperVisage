@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.navigation3.runtime.NavEntry
 import dev.apanzinc.hypervisage.data.Route
+import dev.apanzinc.hypervisage.data.preference.Preferences
 import dev.apanzinc.hypervisage.debug.CrashRecorder
 import dev.apanzinc.hypervisage.ui.pages.ExamplePage
 import dev.apanzinc.hypervisage.ui.pages.MainTabsScreen
@@ -25,16 +26,24 @@ import dev.lackluster.hyperx.ui.preference.core.LocalPreferenceActions
 import dev.lackluster.hyperx.ui.theme.HyperXTheme
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.compose.koinInject
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 
 class MainActivity : HyperXActivity() {
 
     @Composable
     override fun AppContent() {
+        val appSettings: AppSettings = koinInject()
+        val themeMode by appSettings.themeMode.collectAsState()
+        val colorSchemeMode = when (themeMode) {
+            Preferences.App.THEME_LIGHT -> ColorSchemeMode.Light
+            Preferences.App.THEME_DARK -> ColorSchemeMode.Dark
+            else -> ColorSchemeMode.System
+        }
         // 上次崩溃的日志优先展示，方便不接 ADB 时直接复制堆栈
         val crashReport = remember { mutableStateOf(CrashRecorder.read(this)) }
         val report = crashReport.value
         if (report != null) {
-            HyperXTheme {
+            HyperXTheme(colorSchemeMode = colorSchemeMode) {
                 CrashReportScreen(
                     report = report,
                     onClose = {
@@ -44,12 +53,12 @@ class MainActivity : HyperXActivity() {
                 )
             }
         } else {
-            MainContent()
+            MainContent(colorSchemeMode = colorSchemeMode)
         }
     }
 
     @Composable
-    private fun MainContent() {
+    private fun MainContent(colorSchemeMode: ColorSchemeMode) {
         val preferenceActions: AppPreferenceActions = koinInject()
         val appSettings: AppSettings = koinInject()
         val predictiveBack by appSettings.predictiveBack.collectAsState()
@@ -70,6 +79,7 @@ class MainActivity : HyperXActivity() {
             HyperXAppLayout(
                 config = layoutConfig,
                 predictiveBackEnabled = predictiveBack,
+                colorSchemeMode = colorSchemeMode,
                 primaryContent = {
                     MainTabsScreen(
                         tabRequests = tabRequests,

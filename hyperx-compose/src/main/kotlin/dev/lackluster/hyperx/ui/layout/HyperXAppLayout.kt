@@ -47,6 +47,7 @@ import dev.lackluster.hyperx.ui.component.IconSize
 import dev.lackluster.hyperx.ui.component.ImageIcon
 import dev.lackluster.hyperx.ui.component.ImageSource
 import dev.lackluster.hyperx.ui.theme.HyperXTheme
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.MiuixPopupUtils
 
@@ -54,11 +55,13 @@ import top.yukonga.miuix.kmp.utils.MiuixPopupUtils
 fun HyperXAppLayout(
     config: HyperXLayoutConfig = HyperXLayoutConfig(),
     predictiveBackEnabled: Boolean = false,
+    /** 由 App 侧的界面配色设置传入，默认仍跟随系统 */
+    colorSchemeMode: ColorSchemeMode = ColorSchemeMode.System,
     customEntryProvider: ((key: NavKey) -> NavEntry<NavKey>)? = null,
     emptyContent: @Composable () -> Unit = { DefaultEmptyPage() },
     primaryContent: @Composable () -> Unit
 ) {
-    HyperXTheme {
+    HyperXTheme(colorSchemeMode = colorSchemeMode) {
         val density = LocalDensity.current
         val containerSize = LocalWindowInfo.current.containerSize
         val windowWidth = with(density) { containerSize.width.toDp() }

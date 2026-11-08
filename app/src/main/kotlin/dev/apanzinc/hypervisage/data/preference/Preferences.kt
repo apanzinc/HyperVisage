@@ -25,6 +25,12 @@ object Preferences {
         val GLASS_BLUR = PreferenceKey("glass_blur", true)
         /** 打开后底栏用组件库的标准悬浮栏，关闭则是分离式胶囊，默认关 */
         val STANDARD_BOTTOM_BAR = PreferenceKey("standard_bottom_bar", false)
+
+        /** 界面配色：0 跟随系统 / 1 浅色 / 2 深色 */
+        const val THEME_SYSTEM = 0
+        const val THEME_LIGHT = 1
+        const val THEME_DARK = 2
+        val THEME_MODE = PreferenceKey("theme_mode", THEME_SYSTEM)
     }
 
     object Example {
