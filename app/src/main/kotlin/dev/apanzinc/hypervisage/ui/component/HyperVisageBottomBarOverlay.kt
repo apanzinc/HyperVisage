@@ -23,10 +23,8 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import dev.apanzinc.hypervisage.R
 import dev.apanzinc.hypervisage.data.Route
-import dev.apanzinc.hypervisage.ui.pages.TabCount
 import dev.apanzinc.hypervisage.ui.pages.TabSpring
 import dev.lackluster.hyperx.navigation.LocalNavigator
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
@@ -174,15 +172,8 @@ private fun BottomBarHost(
             selectedIndex = selectedIndex,
             selectedProgress = selectedProgress,
             onSelect = onSelect,
-            onDragPageDelta = { pageDelta ->
-                val pageSize = pagerState.layoutInfo.pageSize
-                if (pageSize > 0) {
-                    pagerState.dispatchRawDelta(pageDelta * pageSize)
-                }
-            },
-            onDragEnd = {
-                val target = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                    .roundToInt().coerceIn(0, TabCount - 1)
+            onSettle = { target ->
+                // 拖动期间不 dispatchRawDelta，页面一直停在原页；松手才一次性切过去
                 scope.launch { pagerState.animateScrollToPage(target, animationSpec = TabSpring) }
             },
             onDragActiveChange = onDragActiveChange,

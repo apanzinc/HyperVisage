@@ -4,7 +4,9 @@
 package dev.apanzinc.hypervisage.ui.component
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -34,11 +36,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +59,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.apanzinc.hypervisage.ui.pages.TabSpring
 import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -113,6 +119,21 @@ private const val VelocitySmoothing = 0.35f
 private const val FlingVelocityThreshold = 0.55f // px per ms
 private const val FlingWidthLoss = 0.10f
 private const val FlingHeightGain = 0.08f
+/** 甩动脉冲先平滑压下去，再和按压 / 拉伸共用同一条回弹，不再瞬间跳到峰值。 */
+private const val FlingPulseDuration = 90
+/** 拖出两端后的阻尼，避免高光贴死在边界上还能一直累加。 */
+private const val DragOverscrollResistance = 0.35f
+/** 所有形变回弹共用一条不过冲太久的弹簧，避免各弹各的看着乱。 */
+private val ReboundSpring = spring<Float>(dampingRatio = 0.78f, stiffness = 520f)
+
+/** 手势内部的临时量，不写 Compose State，拖动每帧不重组底栏。 */
+private class DragMemory {
+    var startPage = 0f
+    var accumulated = 0f
+    var lastUptime = -1L
+    var velocity = 0f
+    var stretchJob: Job? = null
+}
 
 @Immutable
 data class HyperVisageBottomBarItem(
@@ -128,9 +149,8 @@ fun HyperVisageBottomBar(
     /** Pager 的连续进度（currentPage + offsetFraction），高光在 draw 阶段直接读 */
     selectedProgress: State<Float>,
     onSelect: (Int) -> Unit,
-    /** 手指在胶囊上横滑，按「页」为单位喂给 Pager，页面和高光同一份进度 */
-    onDragPageDelta: (Float) -> Unit,
-    onDragEnd: () -> Unit,
+    /** 松手后才把目标页交给 Pager：拖动期间页面不动，只有选择器跟手 */
+    onSettle: (Int) -> Unit,
     onDragActiveChange: (Boolean) -> Unit,
     actionIcon: ImageVector,
     actionContentDescription: String,
@@ -172,8 +192,7 @@ fun HyperVisageBottomBar(
                 index = index,
                 progress = selectedProgress,
                 onSelect = onSelect,
-                onDragPageDelta = onDragPageDelta,
-                onDragEnd = onDragEnd,
+                onSettle = onSettle,
                 onDragActiveChange = onDragActiveChange,
                 contentColor = contentColor,
                 isLight = isLight,
@@ -201,8 +220,7 @@ private fun NavigationCapsule(
     index: Int,
     progress: State<Float>,
     onSelect: (Int) -> Unit,
-    onDragPageDelta: (Float) -> Unit,
-    onDragEnd: () -> Unit,
+    onSettle: (Int) -> Unit,
     onDragActiveChange: (Boolean) -> Unit,
     contentColor: Color,
     isLight: Boolean,
@@ -222,6 +240,29 @@ private fun NavigationCapsule(
     val pressedStates = remember(items.size) {
         List(items.size) { mutableStateOf(false) }
     }
+    // 形变全部由手势事件直接驱动 Animatable，不再走「State -> LaunchedEffect -> 动画」
+    // 那条间接链路：拖动把 PressInteraction cancel 掉时不会反复打断回弹。
+    val pressScale = remember { Animatable(1f) }
+    val stretch = remember { Animatable(0f) }
+    val flingSquish = remember { Animatable(0f) }
+    // 拖动期间选择器走自己的预览位置，Pager 完全不动；松手后才一次性切页
+    val indicatorPage = remember { Animatable(0f) }
+    val followPager = remember { mutableStateOf(true) }
+    val dragActive = remember { mutableStateOf(false) }
+    val memory = remember { DragMemory() }
+    val animationScope = rememberCoroutineScope()
+    val currentSettle by rememberUpdatedState(onSettle)
+    val currentDragActiveChange by rememberUpdatedState(onDragActiveChange)
+
+    fun animatePress(hold: Boolean) {
+        animationScope.launch {
+            pressScale.animateTo(
+                targetValue = if (hold) PressScale else 1f,
+                animationSpec = ReboundSpring,
+            )
+        }
+    }
+
     LaunchedEffect(interactionSources) {
         interactionSources.forEachIndexed { position, source ->
             launch {
@@ -231,30 +272,16 @@ private fun NavigationCapsule(
                         is PressInteraction.Release, is PressInteraction.Cancel -> false
                         else -> pressedStates[position].value
                     }
+                    when (interaction) {
+                        is PressInteraction.Press -> animatePress(true)
+                        // 拖动会提前 cancel 掉 Press，这时手指还没抬，不能回弹
+                        is PressInteraction.Release,
+                        is PressInteraction.Cancel -> if (!dragActive.value) animatePress(false)
+                        else -> Unit
+                    }
                 }
             }
         }
-    }
-    val anyPressed by remember(pressedStates) {
-        derivedStateOf { pressedStates.any { it.value } }
-    }
-    // 拖动手势可能把 PressInteraction 提前 cancel，所以缩小状态同时由 dragActive 兜住：
-    // 手指没离开就一直缩小，只有松手才回弹；位置仍单独读 Pager 进度，拖动照常跟手。
-    val dragActive = remember { mutableStateOf(false) }
-    val holdShrink = anyPressed || dragActive.value
-    val settlePage = onDragEnd
-
-    // 三个形变量都用 Animatable，只在 draw 阶段读 .value：
-    // 拖动每帧只改动画值，不重组这棵底栏，也不影响模糊层。
-    val pressScale = remember { Animatable(1f) }
-    val stretch = remember { Animatable(0f) }
-    val flingSquish = remember { Animatable(0f) }
-    val animationScope = rememberCoroutineScope()
-    LaunchedEffect(holdShrink) {
-        pressScale.animateTo(
-            targetValue = if (holdShrink) PressScale else 1f,
-            animationSpec = spring(dampingRatio = 0.72f, stiffness = 520f),
-        )
     }
     // 关掉界面模糊时没有窗口级纹理，按钮退回不透明实底，避免半透明表面悬空
     val fallbackSurface = if (isLight) Color.White else MiuixTheme.colorScheme.surface
@@ -283,10 +310,11 @@ private fun NavigationCapsule(
                 // 灰边只走深色模式，浅色直接跳过
                 drawBarBorder(isLight)
 
-                // 选中指示：位置只由 Pager 连续进度决定，形变一律以中心为锚，
-                // 所以拖动照常跟手，缩小 / 拉长 / 甩动回弹都不会影响切页。
+                // 拖动时读自己的预览位置（Pager 不动），松手动画结束后切回 Pager 进度。
+                // 形变一律以中心为锚，所以缩小 / 拉长 / 甩动回弹都不会影响位置。
                 val slot = (size.width - contentInsetPx * 2f) / items.size
-                val p = progress.value.coerceIn(0f, items.lastIndex.toFloat())
+                val p = (if (followPager.value) progress.value else indicatorPage.value)
+                    .coerceIn(0f, items.lastIndex.toFloat())
                 val scale = pressScale.value
                 val lengthening = stretch.value
                 val fling = flingSquish.value
@@ -303,60 +331,103 @@ private fun NavigationCapsule(
                     cornerRadius = CornerRadius(h / 2f),
                 )
             }
-            .pointerInput(slotPx, onDragPageDelta, onDragEnd, onDragActiveChange) {
-                // 速度只在手势内部累计，不写 Compose State，避免拖动每帧重组
-                var lastUptime = -1L
-                var smoothedVelocity = 0f
+            .pointerInput(slotPx, items.size) {
+                // 松手这一刻只跑一套回弹：形变统一用 ReboundSpring，
+                // 甩动脉冲先平滑压下去再弹回，不再 snap 到峰值后长时间振荡。
                 fun finishDrag(allowFling: Boolean) {
-                    val releasedVelocity = smoothedVelocity
-                    smoothedVelocity = 0f
-                    lastUptime = -1L
+                    val releasedVelocity = memory.velocity
+                    val flung = allowFling && abs(releasedVelocity) >= FlingVelocityThreshold
+                    memory.velocity = 0f
+                    memory.lastUptime = -1L
                     dragActive.value = false
-                    onDragActiveChange(false)
-                    animationScope.launch {
-                        stretch.animateTo(
-                            targetValue = 0f,
-                            animationSpec = spring(dampingRatio = 0.85f, stiffness = 420f),
-                        )
+                    currentDragActiveChange(false)
+
+                    val preview = indicatorPage.value
+                    val target = if (flung) {
+                        (memory.startPage.roundToInt() +
+                            if (releasedVelocity > 0f) 1 else -1).coerceIn(0, items.lastIndex)
+                    } else {
+                        preview.roundToInt().coerceIn(0, items.lastIndex)
                     }
-                    // 甩出去：瞬间水平压扁一点，再用欠阻尼弹簧弹回原形
-                    if (allowFling && abs(releasedVelocity) >= FlingVelocityThreshold) {
-                        animationScope.launch {
-                            flingSquish.snapTo(1f)
+
+                    // 拖动期间 Pager 一直没动，松手才一次性切到目标页
+                    currentSettle(target)
+
+                    animatePress(false)
+                    memory.stretchJob?.cancel()
+                    animationScope.launch { stretch.animateTo(0f, ReboundSpring) }
+                    animationScope.launch {
+                        if (flung) {
                             flingSquish.animateTo(
-                                targetValue = 0f,
-                                animationSpec = spring(dampingRatio = 0.5f, stiffness = 260f),
+                                targetValue = 1f,
+                                animationSpec = tween(
+                                    durationMillis = FlingPulseDuration,
+                                    easing = LinearOutSlowInEasing,
+                                ),
                             )
                         }
+                        flingSquish.animateTo(0f, ReboundSpring)
                     }
-                    settlePage()
+                    // 选择器与 Pager 同时用 TabSpring 到目标页，结束再切回读 Pager 进度
+                    animationScope.launch {
+                        indicatorPage.animateTo(target.toFloat(), TabSpring)
+                        followPager.value = true
+                    }
                 }
                 detectHorizontalDragGestures(
                     onDragStart = {
                         dragActive.value = true
-                        onDragActiveChange(true)
-                        lastUptime = -1L
-                        smoothedVelocity = 0f
+                        currentDragActiveChange(true)
+                        memory.startPage = progress.value
+                        memory.accumulated = 0f
+                        memory.lastUptime = -1L
+                        memory.velocity = 0f
+                        followPager.value = false
+                        animationScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                            indicatorPage.snapTo(memory.startPage)
+                        }
+                        animatePress(true)
                     },
                     onDragEnd = { finishDrag(true) },
                     onDragCancel = { finishDrag(false) },
                     onHorizontalDrag = { change, dragAmount ->
                         val now = change.uptimeMillis
-                        val dt = if (lastUptime > 0L) {
-                            (now - lastUptime).coerceAtLeast(1L).toFloat()
+                        val dt = if (memory.lastUptime > 0L) {
+                            (now - memory.lastUptime).coerceAtLeast(1L).toFloat()
                         } else {
                             16f
                         }
                         val instant = dragAmount / dt
-                        smoothedVelocity = smoothedVelocity * (1f - VelocitySmoothing) +
+                        memory.velocity = memory.velocity * (1f - VelocitySmoothing) +
                             instant * VelocitySmoothing
-                        lastUptime = now
-                        // 速度越快拉得越长，慢速拖动几乎不形变
-                        val target = (abs(smoothedVelocity) / VelocityFullStretch)
+                        memory.lastUptime = now
+
+                        // 一个 slot 宽度对应一整页，方向按真机手感取正；
+                        // 拖出两端只按 0.35 倍累加，高光不会黏死在边界上
+                        val raw = memory.accumulated + dragAmount / slotPx
+                        val lower = -memory.startPage
+                        val upper = items.lastIndex - memory.startPage
+                        memory.accumulated = when {
+                            raw < lower -> lower + (raw - lower) * DragOverscrollResistance
+                            raw > upper -> upper + (raw - upper) * DragOverscrollResistance
+                            else -> raw
+                        }
+                        val preview = (memory.startPage + memory.accumulated)
+                            .coerceIn(0f, items.lastIndex.toFloat())
+                        animationScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                            indicatorPage.snapTo(preview)
+                        }
+
+                        // 速度越快拉得越长，慢速拖动几乎不形变；
+                        // 单 job + UNDISPATCHED 保证每帧的 snapTo 按序执行、不乱跳
+                        val targetStretch = (abs(memory.velocity) / VelocityFullStretch)
                             .coerceIn(0f, 1f) * StretchMax
-                        animationScope.launch { stretch.snapTo(target) }
-                        // 一个 slot 宽度对应一整页，方向按真机手感取正
-                        onDragPageDelta(dragAmount / slotPx)
+                        memory.stretchJob?.cancel()
+                        memory.stretchJob = animationScope.launch(
+                            start = CoroutineStart.UNDISPATCHED,
+                        ) {
+                            stretch.snapTo(targetStretch)
+                        }
                     },
                 )
             },
