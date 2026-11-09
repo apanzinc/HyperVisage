@@ -47,6 +47,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -67,10 +68,12 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  *
  * 底层材质由窗口级 [HyperVisageBottomBarOverlay] 的翻转渐进模糊提供，
  * 按钮自己再叠一层更强的背景模糊（textureBlur）。开着「界面模糊」时
- * 表面只有模糊：不叠 blend 色、不画实底、不画描边、不画柔光渐变，
+ * 表面只有模糊：不叠 blend 色、不画实底、不画柔光渐变，
  * 深浅主题走同一条路径，深色下就是纯黑色调的模糊。
+ * 纯模糊没有轮廓，所以胶囊和圆钮各描一圈中性灰边，两种主题用同一颜色；
+ * 底层材质层不加边，边界仍然只靠模糊渐变。
  *
- * 关掉模糊时没有纹理可采，按钮才退回不透明实底。阴影只落在按钮上。
+ * 关掉模糊时没有纹理可采，按钮才退回不透明实底，灰边照常保留。阴影只落在按钮上。
  */
 private val BarHeight = 56.dp
 private val CapsuleWidth = 208.dp
@@ -86,6 +89,9 @@ private val IndicatorInsetHorizontal = 8.dp
 private val IndicatorOverhang = 5.dp
 /** 按钮的轻微扩散阴影，材质层不加 */
 private val ButtonShadow = 3.dp
+/** 深浅主题共用一条中性灰边：只勾胶囊与圆钮的轮廓，底层材质层不加 */
+private val BarBorderWidth = 1.dp
+private val BarBorderColor = Color(0xFF949494).copy(alpha = 0.70f)
 
 /** 按下时图标和文字的灰度，按压反馈不做 ripple。 */
 private const val PressedAlpha = 0.42f
@@ -252,8 +258,18 @@ private fun NavigationCapsule(
                 }
             )
             .drawBehind {
-                // 表面只有模糊，这里不画底 / 描边 / 渐变，只留必要的选中指示：
-                // 一层极淡的内容色，跟 Pager 连续进度走，按压时压扁并轻微拉宽
+                // 灰边：纯模糊没有轮廓，深浅主题都用这同一条中性灰勾出胶囊边界
+                val strokePx = BarBorderWidth.toPx()
+                val borderInset = strokePx / 2f
+                drawRoundRect(
+                    color = BarBorderColor,
+                    topLeft = Offset(borderInset, borderInset),
+                    size = Size(size.width - strokePx, size.height - strokePx),
+                    cornerRadius = CornerRadius(size.height / 2f - borderInset),
+                    style = Stroke(width = strokePx),
+                )
+
+                // 选中指示：一层极淡的内容色，跟 Pager 连续进度走，按压时压扁并轻微拉宽
                 val slot = (size.width - contentInsetPx * 2f) / items.size
                 val p = progress.value.coerceIn(0f, items.lastIndex.toFloat())
                 val s = squish.value
@@ -367,6 +383,18 @@ private fun RoundAction(
                     )
                 }
             )
+            .drawBehind {
+                // 圆钮同一条灰边，和胶囊在两种主题下完全一致
+                val strokePx = BarBorderWidth.toPx()
+                val borderInset = strokePx / 2f
+                drawRoundRect(
+                    color = BarBorderColor,
+                    topLeft = Offset(borderInset, borderInset),
+                    size = Size(size.width - strokePx, size.height - strokePx),
+                    cornerRadius = CornerRadius(size.height / 2f - borderInset),
+                    style = Stroke(width = strokePx),
+                )
+            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
