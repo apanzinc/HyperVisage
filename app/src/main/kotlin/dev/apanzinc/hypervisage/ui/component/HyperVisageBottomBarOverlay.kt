@@ -69,7 +69,9 @@ fun HyperVisageBottomBarOverlay(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiuixTheme.colorScheme
-    val isLight = colors.background.luminance() >= 0.5f
+    // 用背景与前景的相对亮度判断深浅，不单卡 0.5 阈值：
+    // 深色主题下 background 万一偏亮，误走浅色分支就会叠出一整块白底
+    val isLight = colors.background.luminance() > colors.onBackground.luminance()
     // 只受开关与设备能力控制，不读 LocalPageTransitionRunning —— 转场时不降级。
     // null 表示关了模糊或设备不支持 RuntimeShader，此时整层不画底色、按钮退回实底。
     val activeBackdrop = if (glassBlur) backdrop else null
@@ -92,18 +94,21 @@ fun HyperVisageBottomBarOverlay(
                 saturation = 1.02f,
             )
         } else {
+            // 深色只压暗、不提亮：不叠任何白色，也不加 brightness / contrast，
+            // 模糊结果保持黑色调。白雾面和提亮会把整块刷成灰白，看着像一层白底。
             BlurColors(
                 blendColors = listOf(
                     BlendColorEntry(colors.background.copy(alpha = 0.46f)),
-                    BlendColorEntry(Color.White.copy(alpha = 0.045f)),
                 ),
-                brightness = 0.035f,
-                contrast = 1.10f,
+                brightness = 0f,
+                contrast = 1f,
+                saturation = 1f,
             )
         }
     }
 
-    // 按钮本身的模糊比底层更强：深色下额外提亮、加白色雾面，让玻璃块明显浮出来。
+    // 按钮模糊比底层更强靠的是 32dp 半径和更浅的压暗，不是靠白色雾面提亮。
+    // 深色下按钮比底层少压一层，自然浮出来，整块仍是黑色调的纯模糊。
     val buttonBlurColors = remember(isLight, colors.background) {
         if (isLight) {
             BlurColors(
@@ -115,11 +120,11 @@ fun HyperVisageBottomBarOverlay(
         } else {
             BlurColors(
                 blendColors = listOf(
-                    BlendColorEntry(Color.White.copy(alpha = 0.16f)),
-                    BlendColorEntry(colors.background.copy(alpha = 0.14f)),
+                    BlendColorEntry(colors.background.copy(alpha = 0.22f)),
                 ),
-                brightness = 0.07f,
-                contrast = 1.16f,
+                brightness = 0f,
+                contrast = 1f,
+                saturation = 1f,
             )
         }
     }

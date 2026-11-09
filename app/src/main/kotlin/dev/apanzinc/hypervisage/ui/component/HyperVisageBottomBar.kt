@@ -72,7 +72,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 底层材质由窗口级 [HyperVisageBottomBarOverlay] 的翻转渐进模糊提供，
  * 按钮自己也叠一层更强的背景模糊（textureBlur），两种主题都生效：
  * - 浅色模式：半透明白底、白色描边、黑色内容，按钮带轻微扩散阴影
- * - 深色模式：柔光玻璃（渐变 + 三层柔光边）+ 明显提亮的背景模糊、白色内容
+ * - 深色模式：黑色调的纯模糊 + 柔光玻璃（渐变 + 三层柔光边）、白色内容，不叠白雾面
  *
  * 阴影只落在按钮上，模糊材质背后不画阴影。
  */
@@ -129,7 +129,8 @@ fun HyperVisageBottomBar(
 
     val index = selectedIndex.coerceIn(0, items.lastIndex)
     val colors = MiuixTheme.colorScheme
-    val isLight = colors.background.luminance() >= 0.5f
+    // 和窗口级覆盖层用同一套相对亮度判断，避免两处深浅判定不一致
+    val isLight = colors.background.luminance() > colors.onBackground.luminance()
     // 浅色模式内容固定黑色，避免图标糊在白底里；深色沿用主题的浅色前景
     val contentColor = if (isLight) Color.Black else colors.onBackground
     val glassTint = if (isLight) Color.Black else Color.White
