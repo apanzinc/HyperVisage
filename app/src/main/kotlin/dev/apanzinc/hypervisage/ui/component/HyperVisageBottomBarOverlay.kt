@@ -16,11 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -34,18 +30,15 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 材质层比按钮本体高，翻转渐进模糊才有足够距离从「下面最糊」过渡到「上面清晰」。 */
 private val BarMaterialHeight = 148.dp
-/** 底栏底层背景模糊：比顶栏略强，浅色深色都生效。 */
+/** 底栏底层背景模糊：比顶栏略强。 */
 private val BackgroundBlurRadius = 22.dp
-/** 按钮自身的背景模糊，明显强于底层，深色下尤其突出。 */
+/** 按钮自身的背景模糊，比底层更强。 */
 private val ButtonBlurRadius = 32.dp
 
 /**
@@ -56,8 +49,9 @@ private val ButtonBlurRadius = 32.dp
  * 也不会被页面转场当成可降级效果关掉。背景纹理同样是窗口级的
  * `LayerBackdrop`，录的是全部页面内容而不是某一个 Pager。
  *
- * 模糊是高优先级：只要「界面模糊」开着且设备支持 RuntimeShader，浅色和深色
- * 都完整渲染；只有关掉开关才整层隐藏（不补底色）。
+ * 这里只有模糊本身：不叠 blend 色、不补渐变、不画描边、不画玻璃底色，
+ * 深浅主题走完全相同的路径。只要「界面模糊」开着且设备支持 RuntimeShader，
+ * 就完整渲染；关掉开关时整层不绘制，按钮退回不透明实底。
  */
 @Composable
 fun HyperVisageBottomBarOverlay(
@@ -68,66 +62,14 @@ fun HyperVisageBottomBarOverlay(
     bottomBarDragging: MutableState<Boolean>,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MiuixTheme.colorScheme
-    // 用背景与前景的相对亮度判断深浅，不单卡 0.5 阈值：
-    // 深色主题下 background 万一偏亮，误走浅色分支就会叠出一整块白底
-    val isLight = colors.background.luminance() > colors.onBackground.luminance()
     // 只受开关与设备能力控制，不读 LocalPageTransitionRunning —— 转场时不降级。
-    // null 表示关了模糊或设备不支持 RuntimeShader，此时整层不画底色、按钮退回实底。
+    // null 表示关了模糊或设备不支持 RuntimeShader，此时整层不绘制、按钮退回实底。
     val activeBackdrop = if (glassBlur) backdrop else null
 
     // miuix-blur 的 blurRadius 单位是 dp：effect 内部会自己乘 density，
-    // 这里再 toPx() 会把半径放大 density 倍，浅色下就成了洗白一片。
+    // 这里再 toPx() 会把半径放大 density 倍。
     val backgroundBlurRadius = BackgroundBlurRadius.value
     val buttonBlurRadius = ButtonBlurRadius.value
-
-    // 浅色页面背景接近纯白，模糊白底几乎看不出来，所以叠一层很淡的冷灰玻璃色
-    // 并抬高对比度，让「被糊开的内容」和纯背景分开，而不是靠一条灰/白实底当边界。
-    val backgroundBlurColors = remember(isLight, colors.background) {
-        if (isLight) {
-            BlurColors(
-                blendColors = listOf(
-                    BlendColorEntry(Color(0xFFC6CEDA).copy(alpha = 0.20f)),
-                ),
-                brightness = -0.012f,
-                contrast = 1.09f,
-                saturation = 1.02f,
-            )
-        } else {
-            // 深色只压暗、不提亮：不叠任何白色，也不加 brightness / contrast，
-            // 模糊结果保持黑色调。白雾面和提亮会把整块刷成灰白，看着像一层白底。
-            BlurColors(
-                blendColors = listOf(
-                    BlendColorEntry(colors.background.copy(alpha = 0.46f)),
-                ),
-                brightness = 0f,
-                contrast = 1f,
-                saturation = 1f,
-            )
-        }
-    }
-
-    // 按钮模糊比底层更强靠的是 32dp 半径和更浅的压暗，不是靠白色雾面提亮。
-    // 深色下按钮比底层少压一层，自然浮出来，整块仍是黑色调的纯模糊。
-    val buttonBlurColors = remember(isLight, colors.background) {
-        if (isLight) {
-            BlurColors(
-                blendColors = listOf(
-                    BlendColorEntry(Color.White.copy(alpha = 0.52f)),
-                ),
-                contrast = 1.07f,
-            )
-        } else {
-            BlurColors(
-                blendColors = listOf(
-                    BlendColorEntry(colors.background.copy(alpha = 0.22f)),
-                ),
-                brightness = 0f,
-                contrast = 1f,
-                saturation = 1f,
-            )
-        }
-    }
 
     Box(
         modifier = modifier
@@ -142,24 +84,10 @@ fun HyperVisageBottomBarOverlay(
                         // 翻转 180°：底部最模糊，越往上越清晰
                         gradient = ProgressiveBlur.Bottom,
                         noiseCoefficient = 0f,
-                        colors = backgroundBlurColors,
                         enabled = true,
                     )
                 } ?: Modifier
-            )
-            .drawBehind {
-                if (activeBackdrop == null) return@drawBehind
-                // 只补一点过渡，上端完全透明，不画灰/白实底当边界
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = if (isLight) {
-                            listOf(Color.Transparent, Color(0xFFE4E9F0).copy(alpha = 0.26f))
-                        } else {
-                            listOf(Color.Transparent, colors.background.copy(alpha = 0.28f))
-                        }
-                    )
-                )
-            },
+            ),
     ) {
         Box(
             modifier = Modifier
@@ -169,7 +97,6 @@ fun HyperVisageBottomBarOverlay(
             BottomBarHost(
                 backdrop = activeBackdrop,
                 buttonBlurRadius = buttonBlurRadius,
-                buttonBlurColors = buttonBlurColors,
                 pagerState = pagerState,
                 standardBottomBar = standardBottomBar,
                 onDragActiveChange = { bottomBarDragging.value = it },
@@ -184,7 +111,6 @@ fun HyperVisageBottomBarOverlay(
 private fun BottomBarHost(
     backdrop: LayerBackdrop?,
     buttonBlurRadius: Float,
-    buttonBlurColors: BlurColors,
     pagerState: PagerState,
     standardBottomBar: Boolean,
     onDragActiveChange: (Boolean) -> Unit,
@@ -265,7 +191,6 @@ private fun BottomBarHost(
             onActionClick = { navigator.push(Route.Search) },
             backdrop = backdrop,
             buttonBlurRadius = buttonBlurRadius,
-            buttonBlurColors = buttonBlurColors,
             modifier = modifier,
         )
     }

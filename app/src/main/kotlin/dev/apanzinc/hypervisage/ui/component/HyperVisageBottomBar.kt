@@ -46,10 +46,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -61,7 +58,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -70,11 +66,11 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 固定贴底的分离式底栏：胶囊导航 + 独立圆形搜索按钮。
  *
  * 底层材质由窗口级 [HyperVisageBottomBarOverlay] 的翻转渐进模糊提供，
- * 按钮自己也叠一层更强的背景模糊（textureBlur），两种主题都生效：
- * - 浅色模式：半透明白底、白色描边、黑色内容，按钮带轻微扩散阴影
- * - 深色模式：黑色调的纯模糊 + 柔光玻璃（渐变 + 三层柔光边）、白色内容，不叠白雾面
+ * 按钮自己再叠一层更强的背景模糊（textureBlur）。开着「界面模糊」时
+ * 表面只有模糊：不叠 blend 色、不画实底、不画描边、不画柔光渐变，
+ * 深浅主题走同一条路径，深色下就是纯黑色调的模糊。
  *
- * 阴影只落在按钮上，模糊材质背后不画阴影。
+ * 关掉模糊时没有纹理可采，按钮才退回不透明实底。阴影只落在按钮上。
  */
 private val BarHeight = 56.dp
 private val CapsuleWidth = 208.dp
@@ -90,7 +86,6 @@ private val IndicatorInsetHorizontal = 8.dp
 private val IndicatorOverhang = 5.dp
 /** 按钮的轻微扩散阴影，材质层不加 */
 private val ButtonShadow = 3.dp
-private val ButtonStroke = 0.75.dp
 
 /** 按下时图标和文字的灰度，按压反馈不做 ripple。 */
 private const val PressedAlpha = 0.42f
@@ -122,7 +117,6 @@ fun HyperVisageBottomBar(
     /** 窗口级背景纹理；非 null 时按钮自己也做背景模糊 */
     backdrop: LayerBackdrop?,
     buttonBlurRadius: Float,
-    buttonBlurColors: BlurColors,
     modifier: Modifier = Modifier,
 ) {
     if (items.isEmpty()) return
@@ -133,7 +127,6 @@ fun HyperVisageBottomBar(
     val isLight = colors.background.luminance() > colors.onBackground.luminance()
     // 浅色模式内容固定黑色，避免图标糊在白底里；深色沿用主题的浅色前景
     val contentColor = if (isLight) Color.Black else colors.onBackground
-    val glassTint = if (isLight) Color.Black else Color.White
     val capsuleShape = RoundedCornerShape(percent = 50)
 
     val navBarBottom = WindowInsets.navigationBars
@@ -161,24 +154,20 @@ fun HyperVisageBottomBar(
                 onDragPageDelta = onDragPageDelta,
                 onDragEnd = onDragEnd,
                 onDragActiveChange = onDragActiveChange,
-                glassTint = glassTint,
                 contentColor = contentColor,
                 isLight = isLight,
                 shape = capsuleShape,
                 backdrop = backdrop,
                 blurRadius = buttonBlurRadius,
-                blurColors = buttonBlurColors,
             )
             RoundAction(
                 icon = actionIcon,
                 contentDescription = actionContentDescription,
-                glassTint = glassTint,
                 contentColor = contentColor,
                 isLight = isLight,
                 onClick = onActionClick,
                 backdrop = backdrop,
                 blurRadius = buttonBlurRadius,
-                blurColors = buttonBlurColors,
             )
         }
     }
@@ -194,13 +183,11 @@ private fun NavigationCapsule(
     onDragPageDelta: (Float) -> Unit,
     onDragEnd: () -> Unit,
     onDragActiveChange: (Boolean) -> Unit,
-    glassTint: Color,
     contentColor: Color,
     isLight: Boolean,
     shape: RoundedCornerShape,
     backdrop: LayerBackdrop?,
     blurRadius: Float,
-    blurColors: BlurColors,
 ) {
     val density = LocalDensity.current
     val overhangPx = with(density) { IndicatorOverhang.toPx() }
@@ -261,14 +248,12 @@ private fun NavigationCapsule(
                         shape = shape,
                         blurRadius = blurRadius,
                         noiseCoefficient = 0f,
-                        colors = blurColors,
                     )
                 }
             )
             .drawBehind {
-                drawBarSurface(0f, 0f, size.width, size.height, glassTint, 1f, isLight)
-
-                // 选择器：同套材质、浓度更高，读 Pager 连续进度；按压时压扁并轻微拉宽
+                // 表面只有模糊，这里不画底 / 描边 / 渐变，只留必要的选中指示：
+                // 一层极淡的内容色，跟 Pager 连续进度走，按压时压扁并轻微拉宽
                 val slot = (size.width - contentInsetPx * 2f) / items.size
                 val p = progress.value.coerceIn(0f, items.lastIndex.toFloat())
                 val s = squish.value
@@ -276,14 +261,11 @@ private fun NavigationCapsule(
                 val h = (size.height - insetPx * 2f) * (1f - SquishHeight * s)
                 if (w <= 0f || h <= 0f) return@drawBehind
                 val centerX = contentInsetPx + (p + 0.5f) * slot
-                drawBarSurface(
-                    centerX - w / 2f,
-                    (size.height - h) / 2f,
-                    w,
-                    h,
-                    glassTint,
-                    2.2f,
-                    isLight,
+                drawRoundRect(
+                    color = contentColor.copy(alpha = 0.13f),
+                    topLeft = Offset(centerX - w / 2f, (size.height - h) / 2f),
+                    size = Size(w, h),
+                    cornerRadius = CornerRadius(h / 2f),
                 )
             }
             .pointerInput(slotPx, onDragPageDelta, onDragEnd, onDragActiveChange) {
@@ -352,13 +334,11 @@ private fun NavigationCapsule(
 private fun RoundAction(
     icon: ImageVector,
     contentDescription: String,
-    glassTint: Color,
     contentColor: Color,
     isLight: Boolean,
     onClick: () -> Unit,
     backdrop: LayerBackdrop?,
     blurRadius: Float,
-    blurColors: BlurColors,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed = rememberPressed(interactionSource)
@@ -384,13 +364,9 @@ private fun RoundAction(
                         shape = CircleShape,
                         blurRadius = blurRadius,
                         noiseCoefficient = 0f,
-                        colors = blurColors,
                     )
                 }
             )
-            .drawBehind {
-                drawBarSurface(0f, 0f, size.width, size.height, glassTint, 1f, isLight)
-            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -403,78 +379,6 @@ private fun RoundAction(
             contentDescription = contentDescription,
             modifier = Modifier.size(ActionIconSize),
             tint = tint,
-        )
-    }
-}
-
-/**
- * 按钮表面：
- * - 浅色：半透明白底 + 白色描边 + 黑色内容（内容由调用方设置），选中项是同色系稍深一层。
- *   必须半透明，否则会把自己那层背景模糊整个盖住，浅色下就完全看不出模糊
- * - 深色：一层极淡玻璃渐变 + 三层由外到内渐亮的柔光边，是 BloomStroke 的纯绘制近似
- */
-private fun DrawScope.drawBarSurface(
-    left: Float,
-    top: Float,
-    width: Float,
-    height: Float,
-    tint: Color,
-    intensity: Float,
-    isLight: Boolean,
-) {
-    if (width <= 0f || height <= 0f) return
-    val corner = CornerRadius(height / 2f)
-    if (isLight) {
-        // 半透明而不是白实底，让按钮自己的背景模糊能透出被糊开的内容
-        val base = if (intensity > 1.5f) {
-            Color(0xFFF1F1F1).copy(alpha = 0.74f)
-        } else {
-            Color.White.copy(alpha = 0.66f)
-        }
-        drawRoundRect(
-            color = base,
-            topLeft = Offset(left, top),
-            size = Size(width, height),
-            cornerRadius = corner,
-        )
-        val stroke = ButtonStroke.toPx()
-        val inset = stroke / 2f
-        drawRoundRect(
-            color = Color.White,
-            topLeft = Offset(left + inset, top + inset),
-            size = Size(width - inset * 2f, height - inset * 2f),
-            cornerRadius = CornerRadius(height / 2f - inset),
-            style = Stroke(width = stroke),
-        )
-        return
-    }
-
-    val fill = Brush.verticalGradient(
-        colors = listOf(
-            tint.copy(alpha = 0.034f * intensity * 1.6f),
-            tint.copy(alpha = 0.034f * intensity * 0.65f),
-            tint.copy(alpha = 0.034f * intensity * 1.15f),
-        ),
-        startY = top,
-        endY = top + height,
-    )
-    drawRoundRect(
-        brush = fill,
-        topLeft = Offset(left, top),
-        size = Size(width, height),
-        cornerRadius = corner,
-    )
-    listOf(3.5f to 0.030f, 2f to 0.055f, 1f to 0.090f).forEach { (strokeWidth, alpha) ->
-        val inset = strokeWidth / 2f + 0.5f
-        val w = width - inset * 2f
-        val h = height - inset * 2f
-        if (w <= 0f || h <= 0f) return@forEach
-        drawRoundRect(
-            color = tint.copy(alpha = alpha * intensity),
-            topLeft = Offset(left + inset, top + inset),
-            size = Size(w, h),
-            cornerRadius = CornerRadius(h / 2f),
-            style = Stroke(width = strokeWidth),
         )
     }
 }
