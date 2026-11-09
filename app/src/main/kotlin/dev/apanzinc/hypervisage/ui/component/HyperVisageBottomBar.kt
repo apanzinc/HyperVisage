@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -74,7 +73,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  * 纯模糊没有轮廓，所以深色模式下胶囊和圆钮各描一圈很细很淡的中性灰边；
  * 浅色模式不描边。底层材质层在任何主题下都不加边，边界仍然只靠模糊渐变。
  *
- * 关掉模糊时没有纹理可采，按钮才退回不透明实底，深色灰边照常保留。阴影只落在按钮上。
+ * 关掉模糊时没有纹理可采，按钮才退回不透明实底，深色灰边照常保留。
+ * 阴影不用 `Modifier.shadow`（它固定带一个向下的 spot 偏移），改成从按钮轮廓
+ * 四周同心外扩的多层淡描边：扩散 18dp、峰值只有 3% 黑、向外二次衰减，
+ * 范围大但不深，材质层背后不加阴影。
  */
 private val BarHeight = 56.dp
 private val CapsuleWidth = 208.dp
@@ -88,8 +90,10 @@ private val LabelSize = 11.sp
 private val IndicatorInsetVertical = 3.dp
 private val IndicatorInsetHorizontal = 8.dp
 private val IndicatorOverhang = 5.dp
-/** 按钮的轻微扩散阴影，材质层不加 */
-private val ButtonShadow = 3.dp
+/** 从按钮轮廓向四周均匀散开的柔光阴影：范围大、浓度低、没有向下偏移。 */
+private val GlowRadius = 18.dp
+private const val GlowSteps = 18
+private const val GlowPeakAlpha = 0.030f
 /** 只在深色模式画：细而淡的中性灰，浅色模式完全不描；底层材质层不加边 */
 private val BarBorderWidth = 0.5.dp
 private val BarBorderColor = Color(0xFF949494).copy(alpha = 0.40f)
@@ -237,13 +241,8 @@ private fun NavigationCapsule(
         modifier = Modifier
             .width(width)
             .height(BarHeight)
-            .shadow(
-                elevation = ButtonShadow,
-                shape = shape,
-                clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.10f),
-                spotColor = Color.Black.copy(alpha = 0.10f),
-            )
+            // 必须在 clip 之前画，扩散才不会被裁掉
+            .drawBehind { drawSoftGlow() }
             .clip(shape)
             .then(
                 if (backdrop == null) {
@@ -356,13 +355,7 @@ private fun RoundAction(
     Box(
         modifier = Modifier
             .size(ActionSize)
-            .shadow(
-                elevation = ButtonShadow,
-                shape = CircleShape,
-                clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.10f),
-                spotColor = Color.Black.copy(alpha = 0.10f),
-            )
+            .drawBehind { drawSoftGlow() }
             .clip(CircleShape)
             .then(
                 if (backdrop == null) {
@@ -392,6 +385,28 @@ private fun RoundAction(
             contentDescription = contentDescription,
             modifier = Modifier.size(ActionIconSize),
             tint = tint,
+        )
+    }
+}
+
+/**
+ * 从轮廓四周同心外扩的多层淡描边。每层宽度正好衔接，浓度按 (1-t)² 向外衰减，
+ * 紧贴按钮框的一圈最明显、越往外越淡；没有向下偏移，也不会压出一块深色。
+ */
+private fun DrawScope.drawSoftGlow() {
+    val spread = GlowRadius.toPx()
+    val step = spread / GlowSteps
+    val baseCorner = size.height / 2f
+    for (i in GlowSteps - 1 downTo 0) {
+        val t = i.toFloat() / (GlowSteps - 1)
+        val expand = step * i
+        val falloff = 1f - t
+        drawRoundRect(
+            color = Color.Black.copy(alpha = GlowPeakAlpha * falloff * falloff),
+            topLeft = Offset(-expand, -expand),
+            size = Size(size.width + expand * 2f, size.height + expand * 2f),
+            cornerRadius = CornerRadius(baseCorner + expand),
+            style = Stroke(width = step * 1.08f),
         )
     }
 }
