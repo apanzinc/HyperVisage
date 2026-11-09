@@ -3,7 +3,7 @@
 
 package dev.apanzinc.hypervisage.ui.component
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +38,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +57,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -100,9 +102,17 @@ private val BarBorderColor = Color(0xFF949494).copy(alpha = 0.40f)
 
 /** 按下时图标和文字的灰度，按压反馈不做 ripple。 */
 private const val PressedAlpha = 0.42f
-/** 选择器按下时高度压缩、宽度外扩的比例。 */
-private const val SquishHeight = 0.22f
-private const val SquishWidth = 0.10f
+/** 按下时选择器整体等比缩小，拖动全程保持，松手才回弹。 */
+private const val PressScale = 0.88f
+/** 拖动速度带来的轻微拉长：满速时宽度最多多出 12%，高度相应收一点。 */
+private const val StretchMax = 0.12f
+private const val StretchHeightLoss = 0.25f
+private const val VelocityFullStretch = 1.8f // px per ms
+private const val VelocitySmoothing = 0.35f
+/** 甩出去时水平轻微压扁，再弹回原形。 */
+private const val FlingVelocityThreshold = 0.55f // px per ms
+private const val FlingWidthLoss = 0.10f
+private const val FlingHeightGain = 0.08f
 
 @Immutable
 data class HyperVisageBottomBarItem(
@@ -228,12 +238,24 @@ private fun NavigationCapsule(
     val anyPressed by remember(pressedStates) {
         derivedStateOf { pressedStates.any { it.value } }
     }
-    // 返回的是 State<Float>，在 draw 阶段读，不用解包到组合里
-    val squish = animateFloatAsState(
-        targetValue = if (anyPressed) 1f else 0f,
-        animationSpec = spring(dampingRatio = 0.78f, stiffness = 700f),
-        label = "indicatorSquish",
-    )
+    // 拖动手势可能把 PressInteraction 提前 cancel，所以缩小状态同时由 dragActive 兜住：
+    // 手指没离开就一直缩小，只有松手才回弹；位置仍单独读 Pager 进度，拖动照常跟手。
+    val dragActive = remember { mutableStateOf(false) }
+    val holdShrink = anyPressed || dragActive.value
+    val settlePage = onDragEnd
+
+    // 三个形变量都用 Animatable，只在 draw 阶段读 .value：
+    // 拖动每帧只改动画值，不重组这棵底栏，也不影响模糊层。
+    val pressScale = remember { Animatable(1f) }
+    val stretch = remember { Animatable(0f) }
+    val flingSquish = remember { Animatable(0f) }
+    val animationScope = rememberCoroutineScope()
+    LaunchedEffect(holdShrink) {
+        pressScale.animateTo(
+            targetValue = if (holdShrink) PressScale else 1f,
+            animationSpec = spring(dampingRatio = 0.72f, stiffness = 520f),
+        )
+    }
     // 关掉界面模糊时没有窗口级纹理，按钮退回不透明实底，避免半透明表面悬空
     val fallbackSurface = if (isLight) Color.White else MiuixTheme.colorScheme.surface
 
@@ -261,12 +283,17 @@ private fun NavigationCapsule(
                 // 灰边只走深色模式，浅色直接跳过
                 drawBarBorder(isLight)
 
-                // 选中指示：一层极淡的内容色，跟 Pager 连续进度走，按压时压扁并轻微拉宽
+                // 选中指示：位置只由 Pager 连续进度决定，形变一律以中心为锚，
+                // 所以拖动照常跟手，缩小 / 拉长 / 甩动回弹都不会影响切页。
                 val slot = (size.width - contentInsetPx * 2f) / items.size
                 val p = progress.value.coerceIn(0f, items.lastIndex.toFloat())
-                val s = squish.value
-                val w = (slot + overhangPx * 2f) * (1f + SquishWidth * s)
-                val h = (size.height - insetPx * 2f) * (1f - SquishHeight * s)
+                val scale = pressScale.value
+                val lengthening = stretch.value
+                val fling = flingSquish.value
+                val w = (slot + overhangPx * 2f) *
+                    scale * (1f + lengthening) * (1f - FlingWidthLoss * fling)
+                val h = (size.height - insetPx * 2f) *
+                    scale * (1f - StretchHeightLoss * lengthening) * (1f + FlingHeightGain * fling)
                 if (w <= 0f || h <= 0f) return@drawBehind
                 val centerX = contentInsetPx + (p + 0.5f) * slot
                 drawRoundRect(
@@ -277,17 +304,57 @@ private fun NavigationCapsule(
                 )
             }
             .pointerInput(slotPx, onDragPageDelta, onDragEnd, onDragActiveChange) {
+                // 速度只在手势内部累计，不写 Compose State，避免拖动每帧重组
+                var lastUptime = -1L
+                var smoothedVelocity = 0f
+                fun finishDrag(allowFling: Boolean) {
+                    val releasedVelocity = smoothedVelocity
+                    smoothedVelocity = 0f
+                    lastUptime = -1L
+                    dragActive.value = false
+                    onDragActiveChange(false)
+                    animationScope.launch {
+                        stretch.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(dampingRatio = 0.85f, stiffness = 420f),
+                        )
+                    }
+                    // 甩出去：瞬间水平压扁一点，再用欠阻尼弹簧弹回原形
+                    if (allowFling && abs(releasedVelocity) >= FlingVelocityThreshold) {
+                        animationScope.launch {
+                            flingSquish.snapTo(1f)
+                            flingSquish.animateTo(
+                                targetValue = 0f,
+                                animationSpec = spring(dampingRatio = 0.5f, stiffness = 260f),
+                            )
+                        }
+                    }
+                    settlePage()
+                }
                 detectHorizontalDragGestures(
-                    onDragStart = { onDragActiveChange(true) },
-                    onDragEnd = {
-                        onDragActiveChange(false)
-                        onDragEnd()
+                    onDragStart = {
+                        dragActive.value = true
+                        onDragActiveChange(true)
+                        lastUptime = -1L
+                        smoothedVelocity = 0f
                     },
-                    onDragCancel = {
-                        onDragActiveChange(false)
-                        onDragEnd()
-                    },
-                    onHorizontalDrag = { _, dragAmount ->
+                    onDragEnd = { finishDrag(true) },
+                    onDragCancel = { finishDrag(false) },
+                    onHorizontalDrag = { change, dragAmount ->
+                        val now = change.uptimeMillis
+                        val dt = if (lastUptime > 0L) {
+                            (now - lastUptime).coerceAtLeast(1L).toFloat()
+                        } else {
+                            16f
+                        }
+                        val instant = dragAmount / dt
+                        smoothedVelocity = smoothedVelocity * (1f - VelocitySmoothing) +
+                            instant * VelocitySmoothing
+                        lastUptime = now
+                        // 速度越快拉得越长，慢速拖动几乎不形变
+                        val target = (abs(smoothedVelocity) / VelocityFullStretch)
+                            .coerceIn(0f, 1f) * StretchMax
+                        animationScope.launch { stretch.snapTo(target) }
                         // 一个 slot 宽度对应一整页，方向按真机手感取正
                         onDragPageDelta(dragAmount / slotPx)
                     },
