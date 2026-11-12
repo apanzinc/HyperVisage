@@ -172,6 +172,10 @@ private fun BottomBarHost(
             selectedIndex = selectedIndex,
             selectedProgress = selectedProgress,
             onSelect = onSelect,
+            onSettle = { target ->
+                // 拖动期间不 dispatchRawDelta，页面一直停在原页；松手才一次性切过去
+                scope.launch { pagerState.animateScrollToPage(target, animationSpec = TabSpring) }
+            },
             onDragActiveChange = onDragActiveChange,
             actionIcon = searchIcon,
             actionContentDescription = navSearch,

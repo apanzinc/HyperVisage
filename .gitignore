@@ -29,6 +29,3 @@ Thumbs.db
 
 # 调试产物（截图等）
 /dev/shots/
-
-# 视频逐帧分析产物（本地临时）
-/.analysis/
